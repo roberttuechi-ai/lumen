@@ -26,3 +26,5 @@ services:
         value: "1.00"
       - key: TRUST_PROXY
         value: "1"
+      - key: KEEP_AWAKE
+        value: "1"        # 0 = Free-Plan darf nach 15 Min. ohne Anfragen einschlafen

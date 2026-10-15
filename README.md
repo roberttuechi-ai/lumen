@@ -59,6 +59,7 @@ Am Handy im selben WLAN: `http://<IP-des-Rechners>:8787`.
 | `TIMEOUT_MS` | 60000 | Timeout pro Modell |
 | `MOCK=1` | – | **Testmodus ohne echte KI** (synthetische, klar markierte Antworten, keine Kosten) |
 | `MOCK_FAIL=claude` | – | simuliert im Testmodus den Ausfall eines Modells |
+| `KEEP_AWAKE` | an, sobald `RENDER_EXTERNAL_URL` gesetzt ist | `0` schaltet das Wachhalten auf Render aus (siehe unten) |
 
 ## Kosten (Schätzung)
 Preise laut OpenRouter-Modellliste am 15.10.2026, pro 1 Mio. Tokens Eingabe/Ausgabe:
@@ -132,7 +133,8 @@ testdaten/             Testfotos (werden nicht ins Docker-Image kopiert)
 
 Einschränkungen des Free-Plans (Render-Doku, Stand 10/2026):
 - Der Dienst schläft nach **15 Minuten ohne Anfragen** ein. Der erste Aufruf danach dauert **etwa 1 Minute**.
-- 750 Free-Stunden pro Monat und Workspace.
+  Ist `RENDER_EXTERNAL_URL` gesetzt (Render setzt das bei Web-Diensten selbst), ruft Lumen etwa alle 10 Minuten die eigene öffentliche Adresse auf (`GET /healthz`), damit eingehende Anfragen den Dienst wach halten. Der Aufruf liegt vor den Zählern und geht weder in die Tageslimits noch ins Budget. `KEEP_AWAKE=0` schaltet das ab. Schlägt der Aufruf fehl, schreibt der Server eine kurze Zeile und läuft weiter. Zum Testen setzt `KEEP_AWAKE_MS` den Abstand in Millisekunden (1000 bis 2147483647, sonst 10 Minuten).
+- 750 Free-Stunden pro Monat und Workspace. Bleibt der Dienst wach, laufen die Stunden durchgehend — ein Dienst kommt damit etwa auf einen Monat.
 - 0,1 CPU und 512 MB RAM. Für Lumen reicht das, weil die Bildverarbeitung im Browser läuft.
 
 ## Variante B: Docker (Railway, Fly.io, eigener Server)

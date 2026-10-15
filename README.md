@@ -46,7 +46,8 @@ Am Handy im selben WLAN: `http://<IP-des-Rechners>:8787`.
   - Vorher/Nachher-Schieber
   - Regler, die mit den KI-Werten vorbelegt sind und sich frei anpassen lassen
   - Zuschnitt ein- und ausschaltbar
-  - „Bild speichern“ lädt eine JPG-Datei herunter (bis 2400 px Breite, aus dem Originalfoto).
+  - „Teilen / In Fotos sichern“ öffnet das Teilen-Menü des Handys (Web Share API). Die JPG wird vorher erzeugt, in voller Auflösung (bis zur Canvas-Grenze von 16 MP) und mit Qualität 0,92, Dateiname `lumen-JJJJMMTT-HHMM.jpg`. Auf dem iPhone speichert „Bild sichern“ das Foto in der Fotos-App; WhatsApp, Instagram, Nachrichten und Mail stehen im selben Menü. Gibt es schon einen KI-Text, wird er mitgegeben und in die Zwischenablage kopiert (Instagram übernimmt keinen Share-Text).
+  - „Bild speichern“ bleibt der Download (bis 2400 px Breite). Auf dem Desktop, wo Datei-Teilen fehlt, ist das der einzige Button.
 - `POST /api/texte` erzeugt Instagram-Texte auf Deutsch und Englisch mit Hashtags passend zu Bild und Ziel.
 - `GET /api/status` zeigt, ob ein Schlüssel hinterlegt ist, und listet die Modelle.
 

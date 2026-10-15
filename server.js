@@ -114,7 +114,9 @@ function consensus(ok) {
   return out;
 }
 async function mockModel(model, prompt) {
-  await new Promise(r => setTimeout(r, 1500 + Math.random() * 2500));
+  const wait = +process.env.MOCK_DELAY_MS;
+  const ms = Number.isFinite(wait) && wait >= 0 && wait <= 5000 ? wait : (1500 + Math.random() * 2500);
+  await new Promise(r => setTimeout(r, ms));
   if (process.env.MOCK_FAIL && model.includes(process.env.MOCK_FAIL)) throw new Error('Testmodus: simulierter Ausfall');
   if (prompt.startsWith('Schreibe')) return { content: JSON.stringify({ de: { text: '[TESTMODUS] Beispieltext ohne echte KI.', hashtags: ['testmodus', 'lumen'] }, en: { text: '[TEST MODE] Sample text, no real AI.', hashtags: ['testmode'] } }), usage: { cost: 0 } };
   const r = () => Math.round((5 + Math.random() * 4) * 2) / 2, k = {};
@@ -155,34 +157,314 @@ const ACCESS_CODES = env('ACCESS_CODES', '').split(',').map(c => c.trim()).filte
 const AUTH_REQUIRED = ACCESS_CODES.length > 0;
 const SESSION_SECRET = env('SESSION_SECRET', '') || crypto.randomBytes(32).toString('hex'); // ohne Variable: Sessions gelten nur bis zum Neustart
 const SESSION_DAYS = +env('SESSION_DAYS', 14);
+const ACCOUNT_DAYS = 30;
+const MAGIC_MINUTES = 15;
 const LIMIT_PER_CODE = +env('DAILY_LIMIT_PER_CODE', 20);   // Analysen pro Code und Tag
 const LIMIT_PER_IP = +env('DAILY_LIMIT_PER_IP', 30);       // Analysen pro IP und Tag
 const TEXT_FACTOR = +env('TEXT_LIMIT_FACTOR', 2);          // Text-Anfragen = Faktor × Analyse-Limit
 const DAILY_BUDGET = +env('DAILY_BUDGET_USD', 1);          // globale Ausgabengrenze pro Tag (USD)
+const FREE_WEEKLY = 3;                                     // Gratis: Analysen pro Konto, rollierend 7 Tage
+const PRO_DAILY = 15;                                      // Pro: Analysen pro Konto und Tag
+const FREE_LESSONS = 2;                                    // erste Lektionen ohne Pro
 const MAX_BODY = +env('MAX_BODY_BYTES', 8e6);
 const TRUST_PROXY = env('TRUST_PROXY', '1') === '1';       // hinter Render/Railway/Fly-Proxy
+const PROD = env('NODE_ENV', '') === 'production';
 const PUBLIC = path.join(__dirname, 'public');
+const RESEND_API_KEY = env('RESEND_API_KEY', '');
+const MAIL_FROM = env('MAIL_FROM', '');
+const STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', '');
+const STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', '');
+const STRIPE_PRICE_MONTHLY = env('STRIPE_PRICE_MONTHLY', '');
+const STRIPE_PRICE_YEARLY = env('STRIPE_PRICE_YEARLY', '');
+const PRO_CACHE_MS = 5 * 60 * 1000;
+const MAGIC_WINDOW_MS = 15 * 60 * 1000;
+const MAGIC_LIMIT_IP = 8;
+const MAGIC_LIMIT_EMAIL = 3;
+const stripeReady = () => !!(STRIPE_SECRET_KEY && (STRIPE_PRICE_MONTHLY || STRIPE_PRICE_YEARLY));
 
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' });
-let day = today(), spent = 0; const counters = new Map(); const loginFails = new Map();
+let day = today(), spent = 0;
+const counters = new Map();
+const loginFails = new Map();
+const weekHits = new Map();
+const rateMap = new Map();
+const usedMagic = new Set();
+const proCache = new Map();
+const emailByCustomer = new Map();
 function rollDay() { const d = today(); if (d !== day) { day = d; spent = 0; counters.clear(); } }
-const count = (k) => counters.get(k) || 0; const bump = (k) => counters.set(k, count(k) + 1);
-const hash = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 12);
+const count = (k) => counters.get(k) || 0;
+const bump = (k) => counters.set(k, count(k) + 1);
+const hash = (s) => crypto.createHash('sha256').update(String(s)).digest('hex').slice(0, 12);
 const ipOf = (req) => (TRUST_PROXY && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || req.socket.remoteAddress || '?';
 const isHttps = (req) => req.headers['x-forwarded-proto'] === 'https' || !!req.socket.encrypted;
 
 function sign(payload) { const b = Buffer.from(JSON.stringify(payload)).toString('base64url'); return b + '.' + crypto.createHmac('sha256', SESSION_SECRET).update(b).digest('base64url'); }
-function verify(tok) {
-  if (!tok || !tok.includes('.')) return null; const [b, sig] = tok.split('.');
+function verifySigned(tok) {
+  if (!tok || !tok.includes('.')) return null;
+  const i = tok.indexOf('.');
+  const b = tok.slice(0, i), sig = tok.slice(i + 1);
   const exp = crypto.createHmac('sha256', SESSION_SECRET).update(b).digest('base64url');
   if (sig.length !== exp.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(exp))) return null;
-  try { const p = JSON.parse(Buffer.from(b, 'base64url').toString()); if (p.exp < Date.now()) return null;
-    if (!ACCESS_CODES.some(c => hash(c) === p.c)) return null; return p; } catch { return null; } // entfernte Codes verlieren sofort den Zugang
+  try { const p = JSON.parse(Buffer.from(b, 'base64url').toString()); if (!p || typeof p.exp !== 'number' || p.exp < Date.now()) return null; return p; }
+  catch { return null; }
+}
+function normEmail(s) {
+  const e = String(s || '').trim().toLowerCase();
+  if (e.length < 3 || e.length > 254) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return null;
+  return e;
+}
+function readSession(tok) {
+  const p = verifySigned(tok);
+  if (!p || p.typ === 'login') return null;
+  if (p.typ === 'acct') { const e = normEmail(p.e); return e ? { kind: 'account', email: e } : null; }
+  if (p.c && ACCESS_CODES.some(c => hash(c) === p.c)) return { kind: 'code', c: p.c };
+  return null;
+}
+function readMagic(tok) {
+  const p = verifySigned(tok);
+  if (!p || p.typ !== 'login' || !p.n || !normEmail(p.e)) return null;
+  return p;
 }
 const cookies = (req) => Object.fromEntries(String(req.headers.cookie || '').split(';').map(c => c.trim().split('=')).filter(x => x[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
-function session(req) { if (!AUTH_REQUIRED) return { c: 'offen' }; return verify(cookies(req).lumen_s); }
+function session(req) {
+  const s = readSession(cookies(req).lumen_s);
+  if (s) return s;
+  if (!AUTH_REQUIRED) return { kind: 'open', c: 'offen' };
+  return null;
+}
 function setCookie(req, res, val, maxAge) { res.setHeader('Set-Cookie', `lumen_s=${val}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`); }
 function safeEq(a, b) { const x = Buffer.from(hash(a)), y = Buffer.from(hash(b)); return crypto.timingSafeEqual(x, y) && a === b; }
+function safeErr(e) {
+  return String((e && e.message) || e || '')
+    .replace(/\b(sk|rk)_(live|test)_[A-Za-z0-9]+/g, '$1_…')
+    .replace(/\bwhsec_[A-Za-z0-9]+/g, 'whsec_…')
+    .replace(/\bre_[A-Za-z0-9_]+/g, 're_…')
+    .slice(0, 180);
+}
+function allowRate(map, key, max, windowMs, now) {
+  now = now || Date.now();
+  let b = map.get(key);
+  if (!b || now - b.t >= windowMs) b = { n: 0, t: now };
+  if (b.n >= max) { map.set(key, b); return false; }
+  b.n += 1; map.set(key, b); return true;
+}
+function weekCount(email, now) {
+  const cut = (now || Date.now()) - 7 * 864e5;
+  const arr = (weekHits.get(email) || []).filter(t => t >= cut);
+  weekHits.set(email, arr);
+  return arr.length;
+}
+function weekBump(email, now) {
+  const t = now || Date.now();
+  weekCount(email, t);
+  weekHits.get(email).push(t);
+}
+function takeNonce(n) {
+  if (!n || usedMagic.has(n)) return false;
+  usedMagic.add(n);
+  if (usedMagic.size > 4000) { const it = usedMagic.values(); for (let i = 0; i < 1000; i++) usedMagic.delete(it.next().value); }
+  return true;
+}
+function usageKey(sess) { return sess.kind === 'account' ? ('m:' + hash(sess.email)) : sess.c; }
+function freeModel() { return MODELS.find(m => m.label === 'Gemini') || { label: 'Gemini', id: 'google/gemini-3.8-flash' }; }
+function activeModels(sess) { return (sess.kind === 'account' && sess.tier === 'free') ? [freeModel()] : MODELS; }
+function planOf(sess) {
+  if (!sess) return null;
+  if (sess.kind === 'code') return 'tester';
+  if (sess.kind === 'open') return 'open';
+  return sess.tier === 'pro' ? 'pro' : 'free';
+}
+function featuresOf(sess) {
+  const pro = !sess || sess.kind !== 'account' || sess.tier === 'pro';
+  return { captions: pro, courseAll: pro, models: pro ? MODELS.length : 1 };
+}
+function usage(sess, ip) {
+  const free = sess.kind === 'account' && sess.tier === 'free';
+  const used = free ? weekCount(sess.email) : count('a:' + usageKey(sess));
+  const limit = free ? FREE_WEEKLY : (sess.kind === 'account' ? PRO_DAILY : LIMIT_PER_CODE);
+  return { used, limit, remaining: Math.max(0, limit - used), window: free ? 'week' : 'day', ipUsed: count('i:' + ip), ipLimit: LIMIT_PER_IP };
+}
+// Reine Entscheidung, damit Gratis/Pro/Code ohne Netzwerk testbar sind.
+function decideAccess(o) {
+  const proFeatures = o.kind !== 'account' || o.tier === 'pro';
+  if (o.isText && !proFeatures) return { allow: false, status: 403, error: 'Instagram-Texte sind Teil von Lumen Pro.', upgrade: true, limit: 'feature' };
+  const factor = o.isText ? o.textFactor : 1;
+  if (!o.isText && o.kind === 'account' && o.tier === 'free') {
+    if (o.weekUsed >= o.freeWeekly) return { allow: false, status: 429, error: `Dein Gratis-Kontingent ist aufgebraucht (${o.freeWeekly} Analysen pro Woche). Mit Pro sind es ${o.proDaily} Analysen pro Tag.`, upgrade: true, limit: 'week' };
+  } else {
+    const base = o.kind === 'account' ? o.proDaily : o.codeLimit;
+    const limit = base * factor;
+    if (o.periodUsed >= limit) {
+      const what = o.isText ? 'Texte' : 'Analysen';
+      return { allow: false, status: 429, error: `Tageslimit erreicht (${limit} ${what} pro Tag). Morgen geht's weiter.`, limit: 'code', upgrade: false };
+    }
+  }
+  if (o.ipUsed >= o.ipLimit * factor) return { allow: false, status: 429, error: 'Tageslimit für diese Verbindung erreicht.', limit: 'ip' };
+  if (o.budgetSpent >= o.budgetMax) return { allow: false, status: 429, error: 'Das Tagesbudget der Testphase ist aufgebraucht. Bitte morgen erneut versuchen.', limit: 'budget' };
+  return { allow: true };
+}
+function accessCtx(sess, ip, isText) {
+  const key = usageKey(sess);
+  return {
+    kind: sess.kind, tier: sess.tier, isText,
+    weekUsed: sess.kind === 'account' ? weekCount(sess.email) : 0,
+    periodUsed: count((isText ? 't:' : 'a:') + key),
+    ipUsed: count((isText ? 'ti:' : 'i:') + ip),
+    ipLimit: LIMIT_PER_IP, codeLimit: LIMIT_PER_CODE, proDaily: PRO_DAILY, freeWeekly: FREE_WEEKLY,
+    textFactor: TEXT_FACTOR, budgetSpent: spent, budgetMax: DAILY_BUDGET,
+  };
+}
+
+function verifyStripeSignature(raw, header, secret, toleranceSec = 300) {
+  if (raw == null || !header || !secret) return false;
+  const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw));
+  let timestamp = null; const sigs = [];
+  for (const part of String(header).split(',')) {
+    const i = part.indexOf('='); if (i < 0) continue;
+    const k = part.slice(0, i).trim(), v = part.slice(i + 1).trim();
+    if (k === 't') timestamp = v; else if (k === 'v1') sigs.push(v.toLowerCase());
+  }
+  if (!timestamp || !/^\d+$/.test(timestamp) || !sigs.length) return false;
+  const ts = Number(timestamp);
+  if (toleranceSec > 0 && ts < Math.floor(Date.now() / 1000) - toleranceSec) return false;
+  const mac = crypto.createHmac('sha256', secret);
+  mac.update(timestamp + '.'); mac.update(buf);
+  const expected = mac.digest('hex');
+  const exp = Buffer.from(expected);
+  return sigs.some(s => s.length === expected.length && crypto.timingSafeEqual(Buffer.from(s), exp));
+}
+function formEncode(obj) {
+  const parts = [];
+  const walk = (key, val) => {
+    if (val === undefined || val === null) return;
+    if (Array.isArray(val)) val.forEach((v, i) => walk(`${key}[${i}]`, v));
+    else if (typeof val === 'object') Object.entries(val).forEach(([k, v]) => walk(`${key}[${k}]`, v));
+    else parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(val)));
+  };
+  Object.entries(obj).forEach(([k, v]) => walk(k, v));
+  return parts.join('&');
+}
+async function stripeSend(method, pathQuery, form) {
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch('https://api.stripe.com' + pathQuery, {
+      method, signal: ctrl.signal,
+      headers: Object.assign({ Authorization: 'Bearer ' + STRIPE_SECRET_KEY }, form ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
+      body: form || undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { const err = new Error((data.error && data.error.message) || ('Stripe HTTP ' + r.status)); err.status = 502; throw err; }
+    return data;
+  } catch (e) { if (e.name === 'AbortError') throw new Error('Stripe Zeitüberschreitung'); throw e; }
+  finally { clearTimeout(t); }
+}
+const stripeGet = (p) => stripeSend('GET', p, null);
+const stripePost = (p, params) => stripeSend('POST', p, formEncode(params));
+function setProCache(email, pro, customerId) {
+  const prev = proCache.get(email);
+  proCache.set(email, { pro: !!pro, customerId: customerId || (prev && prev.customerId) || null, exp: Date.now() + PRO_CACHE_MS });
+}
+async function fetchPro(email) {
+  const list = await stripeGet('/v1/customers?email=' + encodeURIComponent(email) + '&limit=5');
+  let customerId = null, pro = false;
+  for (const c of (list.data || []).slice(0, 5)) {
+    if (!customerId) customerId = c.id;
+    const subs = await stripeGet('/v1/subscriptions?customer=' + encodeURIComponent(c.id) + '&status=all&limit=20');
+    if ((subs.data || []).some(s => s.status === 'active' || s.status === 'trialing')) { pro = true; customerId = c.id; break; }
+  }
+  return { pro, customerId };
+}
+async function lookupPro(email) {
+  const key = normEmail(email);
+  if (!key) return { pro: false, customerId: null };
+  const hit = proCache.get(key);
+  if (hit && hit.exp > Date.now()) return hit;
+  if (!STRIPE_SECRET_KEY) return { pro: false, customerId: null };
+  try {
+    const rec = await fetchPro(key);
+    rec.exp = Date.now() + PRO_CACHE_MS;
+    proCache.set(key, rec);
+    if (rec.customerId) emailByCustomer.set(rec.customerId, key);
+    return rec;
+  } catch (e) {
+    console.log('[stripe] Abo-Status nicht geprüft: ' + safeErr(e));
+    if (hit) return hit;
+    return { pro: false, customerId: null };
+  }
+}
+async function enrich(sess) {
+  if (!sess) return null;
+  if (sess.kind === 'account') {
+    const rec = await lookupPro(sess.email);
+    sess.tier = rec.pro ? 'pro' : 'free';
+    sess.customerId = rec.customerId || null;
+  } else sess.tier = 'pro';
+  return sess;
+}
+function customerIdOf(obj) { const c = obj && obj.customer; if (!c) return null; return typeof c === 'string' ? c : (c.id || null); }
+async function handleStripeEvent(event) {
+  const type = event && event.type;
+  const obj = (event && event.data && event.data.object) || {};
+  if (type === 'checkout.session.completed') {
+    const email = normEmail(obj.customer_email || (obj.customer_details && obj.customer_details.email));
+    const customer = customerIdOf(obj);
+    if (customer && email) emailByCustomer.set(customer, email);
+    if (email && obj.mode === 'subscription' && obj.status === 'complete') setProCache(email, true, customer);
+    else if (email) proCache.delete(email);
+    console.log('[stripe] checkout.session.completed ' + (email ? hash(email) : 'ohne-mail'));
+    return;
+  }
+  if (type === 'customer.subscription.updated' || type === 'customer.subscription.deleted') {
+    const customer = customerIdOf(obj);
+    let email = (customer && emailByCustomer.get(customer)) || null;
+    if (!email && customer && STRIPE_SECRET_KEY) {
+      const c = await stripeGet('/v1/customers/' + encodeURIComponent(customer));
+      email = normEmail(c.email);
+      if (email) emailByCustomer.set(customer, email);
+    }
+    if (!email) { proCache.clear(); console.log('[stripe] ' + type + ' Cache geleert'); return; }
+    if (type === 'customer.subscription.updated' && (obj.status === 'active' || obj.status === 'trialing')) setProCache(email, true, customer);
+    else proCache.delete(email);
+    console.log('[stripe] ' + type + ' ' + String(obj.status || '') + ' ' + hash(email));
+    return;
+  }
+  console.log('[stripe] ignoriert: ' + String(type || '').slice(0, 80));
+}
+function publicBase(req) {
+  const ext = env('RENDER_EXTERNAL_URL', '').replace(/\/+$/, '');
+  if (ext) { try { const u = new URL(ext); if (u.protocol === 'https:' || u.protocol === 'http:') return u.origin; } catch {} }
+  const host = String(req.headers.host || ('localhost:' + PORT));
+  const safeHost = /^[A-Za-z0-9.:\-\[\]]+$/.test(host) ? host : ('localhost:' + PORT);
+  return (isHttps(req) ? 'https' : 'http') + '://' + safeHost;
+}
+function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+async function sendMagicMail(email, link) {
+  if (!RESEND_API_KEY || !MAIL_FROM) {
+    console.log('[mail] WARNUNG: ' + (!RESEND_API_KEY ? 'RESEND_API_KEY' : 'MAIL_FROM') + ' fehlt – keine E-Mail versendet');
+    if (!PROD) console.log('[mail] Login-Link (nur Entwicklung): ' + link);
+    return { delivered: false, dev: !PROD };
+  }
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST', signal: ctrl.signal,
+      headers: { Authorization: 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: MAIL_FROM, to: [email], subject: 'Dein Anmeldelink für Lumen',
+        text: `Hallo,\n\nüber diesen Link meldest du dich bei Lumen an (15 Minuten gültig, einmal nutzbar):\n${link}\n\nWenn du das nicht warst, ignoriere diese E-Mail.\n\nLumen · Picwish-Fotodesign`,
+        html: `<p>Hallo,</p><p>über diesen Link meldest du dich bei Lumen an. Er ist <b>15 Minuten</b> gültig und nur einmal nutzbar.</p><p><a href="${escHtml(link)}">Jetzt anmelden</a></p><p style="color:#666;font-size:13px">Wenn du das nicht warst, ignoriere diese E-Mail.</p><p style="color:#666;font-size:13px">Lumen · Picwish-Fotodesign</p>`,
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.message || data.error || ('HTTP ' + r.status));
+    return { delivered: true, dev: false };
+  } catch (e) { console.log('[mail] Versand fehlgeschlagen: ' + safeErr(e)); throw e; }
+  finally { clearTimeout(t); }
+}
+function resetEphemeral() {
+  weekHits.clear(); counters.clear(); rateMap.clear(); usedMagic.clear(); proCache.clear(); emailByCustomer.clear(); loginFails.clear(); spent = 0;
+}
 
 const SEC_HEADERS = {
   'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
@@ -190,20 +472,45 @@ const SEC_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
 };
 function headers(req, res) { for (const [k, v] of Object.entries(SEC_HEADERS)) res.setHeader(k, v); if (isHttps(req)) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); }
+function readRaw(req, limit) {
+  return new Promise((res, rej) => {
+    const len = +req.headers['content-length'] || 0;
+    if (len > limit) { const e = new Error('Anfrage zu groß'); e.status = 413; return rej(e); }
+    const chunks = []; let n = 0, settled = false;
+    const fail = (e) => { if (settled) return; settled = true; rej(e); };
+    req.on('data', c => {
+      if (settled) return;
+      n += c.length;
+      if (n > limit) { const e = new Error('Anfrage zu groß'); e.status = 413; fail(e); req.destroy(); }
+      else chunks.push(c);
+    });
+    req.on('end', () => { if (!settled) { settled = true; res(Buffer.concat(chunks)); } });
+    req.on('error', fail);
+  });
+}
 function readBody(req, limit = MAX_BODY) {
-  return new Promise((res, rej) => { const len = +req.headers['content-length'] || 0; if (len > limit) { const e = new Error('Anfrage zu groß'); e.status = 413; return rej(e); }
-    let d = '', n = 0;
-    req.on('data', c => { n += c.length; if (n > limit) { const e = new Error('Anfrage zu groß'); e.status = 413; rej(e); req.destroy(); } else d += c; });
-    req.on('end', () => { try { res(JSON.parse(d || '{}')); } catch { const e = new Error('Ungültige Anfrage'); e.status = 400; rej(e); } }); req.on('error', rej); });
+  return readRaw(req, limit).then(buf => { try { return JSON.parse(buf.length ? buf.toString('utf8') : '{}'); } catch { const e = new Error('Ungültige Anfrage'); e.status = 400; throw e; } });
 }
 const send = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
+function sendHtml(res, code, html) { res.writeHead(code, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(html); }
 const validImg = (s) => typeof s === 'string' && s.length < MAX_BODY && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s);
 const STATIC = { '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'],
   '/datenschutz': ['datenschutz.html', 'text/html; charset=utf-8'], '/impressum': ['impressum.html', 'text/html; charset=utf-8'],
+  '/agb': ['agb.html', 'text/html; charset=utf-8'], '/widerruf': ['widerruf.html', 'text/html; charset=utf-8'],
   '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'], '/icon.svg': ['icon.svg', 'image/svg+xml'],
   '/favicon.ico': ['icon-192.png', 'image/png'], '/icon-192.png': ['icon-192.png', 'image/png'], '/icon-512.png': ['icon-512.png', 'image/png'],
   '/apple-touch-icon.png': ['icon-192.png', 'image/png'] };
-const usage = (sess, ip) => ({ used: count('a:' + sess.c), limit: LIMIT_PER_CODE, ipUsed: count('i:' + ip), ipLimit: LIMIT_PER_IP });
+function mePayload(sess, ip) {
+  return {
+    authRequired: AUTH_REQUIRED, auth: !!sess, kind: sess ? sess.kind : null, plan: planOf(sess),
+    email: sess && sess.kind === 'account' ? sess.email : null,
+    stripe: stripeReady(), prices: { month: !!STRIPE_PRICE_MONTHLY, year: !!STRIPE_PRICE_YEARLY },
+    usage: sess ? usage(sess, ip) : null, features: sess ? featuresOf(sess) : null, freeLessons: FREE_LESSONS,
+  };
+}
+function linkPage(title, text) {
+  return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(title)} – Lumen</title><style>body{font-family:Inter,-apple-system,sans-serif;background:#0d0d0e;color:#f1efe9;margin:0;padding:32px 20px}main{max-width:420px;margin:0 auto}a{color:#c9a97c}p{line-height:1.5;color:#d6d3cb}</style></head><body><main><p style="letter-spacing:.18em;font-size:12px;color:#c9a97c">LUMEN</p><h1>${escHtml(title)}</h1><p>${text}</p><p><a href="/">Zur Anmeldung</a></p></main></body></html>`;
+}
 
 const server = http.createServer(async (req, res) => {
   headers(req, res); rollDay();
@@ -216,6 +523,14 @@ const server = http.createServer(async (req, res) => {
       return fs.createReadStream(path.join(PUBLIC, f)).pipe(res);
     }
     if (p === '/healthz') return send(res, 200, { ok: true, uptime: Math.round(process.uptime()), key: !!KEY || MOCK });
+    if (req.method === 'POST' && p === '/stripe/webhook') {
+      const raw = await readRaw(req, 1e6);
+      if (!STRIPE_WEBHOOK_SECRET) { console.log('[stripe] WARNUNG: STRIPE_WEBHOOK_SECRET fehlt – Webhook abgelehnt'); return send(res, 503, { error: 'Webhook nicht konfiguriert' }); }
+      if (!verifyStripeSignature(raw, req.headers['stripe-signature'], STRIPE_WEBHOOK_SECRET)) return send(res, 400, { error: 'Signatur ungültig' });
+      let event; try { event = JSON.parse(raw.toString('utf8') || '{}'); } catch { return send(res, 400, { error: 'Ungültiger Webhook' }); }
+      await handleStripeEvent(event);
+      return send(res, 200, { received: true });
+    }
     if (req.method === 'POST' && p === '/api/login') {
       const f = loginFails.get(ip) || { n: 0, t: Date.now() }; if (Date.now() - f.t > 15 * 60e3) { f.n = 0; f.t = Date.now(); }
       if (f.n >= 10) return send(res, 429, { error: 'Zu viele Fehlversuche – bitte in 15 Minuten erneut versuchen' });
@@ -225,43 +540,122 @@ const server = http.createServer(async (req, res) => {
       setCookie(req, res, sign({ c: hash(hit), exp: Date.now() + SESSION_DAYS * 864e5 }), SESSION_DAYS * 86400);
       console.log(`[login] ok Code ${hash(hit)}`); return send(res, 200, { ok: true });
     }
+    if (req.method === 'POST' && p === '/api/magic') {
+      if (!allowRate(rateMap, 'ip:' + ip, MAGIC_LIMIT_IP, MAGIC_WINDOW_MS)) return send(res, 429, { error: 'Zu viele Anmeldelinks von dieser Verbindung. Bitte warte einen Moment.' });
+      const b = await readBody(req, 4096);
+      const email = normEmail(b.email);
+      if (!email) return send(res, 400, { error: 'Bitte eine gültige E-Mail-Adresse eingeben.' });
+      if (!allowRate(rateMap, 'em:' + email, MAGIC_LIMIT_EMAIL, MAGIC_WINDOW_MS)) return send(res, 429, { error: 'Zu viele Anmeldelinks für diese Adresse. Bitte warte 15 Minuten.' });
+      const token = sign({ typ: 'login', e: email, n: crypto.randomBytes(16).toString('hex'), exp: Date.now() + MAGIC_MINUTES * 60e3 });
+      const link = publicBase(req) + '/auth/verify?t=' + encodeURIComponent(token);
+      console.log('[magic] Link angefordert ' + hash(email));
+      try {
+        const sent = await sendMagicMail(email, link);
+        if (!sent.delivered && PROD) return send(res, 503, { error: 'Anmeldung per E-Mail ist gerade nicht verfügbar.' });
+        return send(res, 200, { ok: true, delivered: sent.delivered, dev: !!sent.dev });
+      } catch { return send(res, 502, { error: 'Die E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.' }); }
+    }
+    if (req.method === 'GET' && p === '/auth/verify') {
+      const magic = readMagic(url.searchParams.get('t') || '');
+      if (!magic) return sendHtml(res, 400, linkPage('Link ungültig', 'Dieser Anmeldelink ist abgelaufen oder ungültig. Bitte fordere einen neuen an. Er gilt 15 Minuten.'));
+      if (!takeNonce(magic.n)) return sendHtml(res, 400, linkPage('Link schon verwendet', 'Dieser Anmeldelink wurde bereits benutzt. Bitte fordere einen neuen an.'));
+      const email = normEmail(magic.e);
+      setCookie(req, res, sign({ typ: 'acct', e: email, exp: Date.now() + ACCOUNT_DAYS * 864e5 }), ACCOUNT_DAYS * 86400);
+      console.log('[magic] angemeldet ' + hash(email));
+      res.writeHead(302, { Location: '/?angemeldet=1', 'Cache-Control': 'no-store' });
+      return res.end();
+    }
     if (req.method === 'POST' && p === '/api/logout') { setCookie(req, res, '', 0); return send(res, 200, { ok: true }); }
-    const sess = session(req);
-    if (req.method === 'GET' && p === '/api/me') return send(res, 200, { authRequired: AUTH_REQUIRED, auth: !!sess, usage: sess ? usage(sess, ip) : null });
+    const sess = await enrich(session(req));
+    if (req.method === 'GET' && p === '/api/me') return send(res, 200, mePayload(sess, ip));
     if (req.method === 'GET' && p === '/api/status') {
       if (!sess) return send(res, 401, { error: 'Bitte anmelden', login: true });
-      return send(res, 200, { ok: !!KEY || MOCK, mock: MOCK, models: MODELS.map(m => ({ label: m.label, id: m.id })), usage: usage(sess, ip) });
+      const models = activeModels(sess);
+      return send(res, 200, { ok: !!KEY || MOCK, mock: MOCK, models: models.map(m => ({ label: m.label, id: m.id })), catalog: MODELS.map(m => ({ label: m.label, id: m.id })), usage: usage(sess, ip), plan: planOf(sess), features: featuresOf(sess), stripe: stripeReady(), freeLessons: FREE_LESSONS });
+    }
+    if (req.method === 'POST' && p === '/api/checkout') {
+      if (!sess || sess.kind !== 'account') return send(res, 401, { error: 'Bitte mit E-Mail anmelden.', login: true });
+      const b = await readBody(req, 4096);
+      if (b.consent !== true) return send(res, 400, { error: 'Bitte die AGB akzeptieren und dem sofortigen Beginn zustimmen.' });
+      if (!stripeReady()) return send(res, 503, { error: 'Pro bald verfügbar', unavailable: true });
+      if (sess.tier === 'pro') return send(res, 409, { error: 'Du hast bereits Pro. Über „Abo verwalten“ kannst du es ändern.', portal: true });
+      const price = b.plan === 'year' ? STRIPE_PRICE_YEARLY : b.plan === 'month' ? STRIPE_PRICE_MONTHLY : '';
+      if (!price) return send(res, 400, { error: 'Dieser Tarif ist nicht verfügbar.' });
+      const base = publicBase(req);
+      const consentAt = new Date().toISOString();
+      const params = {
+        mode: 'subscription',
+        'line_items[0][price]': price,
+        'line_items[0][quantity]': '1',
+        allow_promotion_codes: 'true',
+        locale: 'de',
+        success_url: base + '/?abo=ok',
+        cancel_url: base + '/?abo=abbruch',
+        client_reference_id: hash(sess.email),
+        // payment_method_types absichtlich weglassen: Stripe zeigt die automatischen Zahlungsmethoden aus dem Dashboard.
+        'metadata[consent_fagg18]': '1',
+        'metadata[consent_at]': consentAt,
+        'subscription_data[metadata][consent_fagg18]': '1',
+        'subscription_data[metadata][consent_at]': consentAt,
+      };
+      if (sess.customerId) params.customer = sess.customerId;
+      else params.customer_email = sess.email;
+      try {
+        const session = await stripePost('/v1/checkout/sessions', params);
+        if (!session.url) throw new Error('Checkout ohne URL');
+        console.log('[stripe] Checkout ' + hash(sess.email) + ' ' + (b.plan === 'year' ? 'jahr' : 'monat'));
+        return send(res, 200, { url: session.url });
+      } catch (e) { console.log('[stripe] Checkout fehlgeschlagen: ' + safeErr(e)); return send(res, 502, { error: 'Der Kauf konnte nicht gestartet werden. Bitte später erneut versuchen.' }); }
+    }
+    if (req.method === 'POST' && p === '/api/portal') {
+      if (!sess || sess.kind !== 'account') return send(res, 401, { error: 'Bitte mit E-Mail anmelden.', login: true });
+      if (!STRIPE_SECRET_KEY) return send(res, 503, { error: 'Pro bald verfügbar', unavailable: true });
+      await readBody(req, 4096);
+      if (!sess.customerId) return send(res, 404, { error: 'Noch kein Abo vorhanden.' });
+      try {
+        const portal = await stripePost('/v1/billing_portal/sessions', { customer: sess.customerId, return_url: publicBase(req) + '/?abo=portal', locale: 'de' });
+        if (!portal.url) throw new Error('Portal ohne URL');
+        return send(res, 200, { url: portal.url });
+      } catch (e) { console.log('[stripe] Portal fehlgeschlagen: ' + safeErr(e)); return send(res, 502, { error: 'Die Abo-Verwaltung konnte nicht geöffnet werden.' }); }
     }
     if (req.method === 'POST' && (p === '/api/analyse' || p === '/api/texte')) {
       if (!sess) return send(res, 401, { error: 'Bitte anmelden', login: true });
       if (!KEY && !MOCK) return send(res, 500, { error: 'OPENROUTER_API_KEY ist auf dem Server nicht gesetzt' });
-      const isA = p === '/api/analyse', f = isA ? 1 : TEXT_FACTOR, kc = (isA ? 'a:' : 't:') + sess.c, ki = (isA ? 'i:' : 'ti:') + ip;
-      if (count(kc) >= LIMIT_PER_CODE * f) return send(res, 429, { error: `Tageslimit erreicht (${LIMIT_PER_CODE * f} ${isA ? 'Analysen' : 'Texte'} pro Tag). Morgen geht's weiter.`, limit: 'code' });
-      if (count(ki) >= LIMIT_PER_IP * f) return send(res, 429, { error: 'Tageslimit für diese Verbindung erreicht.', limit: 'ip' });
-      if (spent >= DAILY_BUDGET) { console.log(`[budget] Tagesbudget $${DAILY_BUDGET} erreicht – Anfrage abgelehnt`); return send(res, 429, { error: 'Das Tagesbudget der Testphase ist aufgebraucht. Bitte morgen erneut versuchen.', limit: 'budget' }); }
+      const isA = p === '/api/analyse';
+      const decision = decideAccess(accessCtx(sess, ip, !isA));
+      if (!decision.allow) {
+        if (decision.limit === 'budget') console.log(`[budget] Tagesbudget $${DAILY_BUDGET} erreicht – Anfrage abgelehnt`);
+        return send(res, decision.status, { error: decision.error, limit: decision.limit, upgrade: !!decision.upgrade, usage: usage(sess, ip) });
+      }
       const b = await readBody(req); const goal = ['Instagram', 'Wettbewerb', 'Lernen'].includes(b.goal) ? b.goal : 'Instagram';
       if (!validImg(b.image)) return send(res, 400, { error: 'Bild fehlt oder hat ein ungültiges Format' });
-      bump(kc); bump(ki);
+      const key = usageKey(sess);
+      if (isA && sess.kind === 'account' && sess.tier === 'free') weekBump(sess.email); else bump((isA ? 'a:' : 't:') + key);
+      bump((isA ? 'i:' : 'ti:') + ip);
+      const who = sess.kind === 'account' ? hash(sess.email) : sess.c;
+      const usedNow = () => (sess.kind === 'account' && sess.tier === 'free') ? weekCount(sess.email) : count('a:' + key);
       if (isA) {
+        const models = activeModels(sess);
         const t0 = Date.now(); const P = (process.env.ALLOW_PROMPT_V1 === '1' && b.promptVersion === 1) ? ANALYSE_PROMPT_V1 : ANALYSE_PROMPT;
-        const results = await Promise.all(MODELS.map(async m => {
+        const results = await Promise.all(models.map(async m => {
           try { const r = await withRetry(m.id, P(goal), b.image, 4000, normAnalyse);
             return { label: m.label, model: m.id, ok: true, data: r.data, usage: r.usage };
           } catch (e) { return { label: m.label, model: m.id, ok: false, error: e.message, cost: e.cost || 0 }; }
         }));
         const cost = results.reduce((a, r) => a + (r.usage?.cost || r.cost || 0), 0); spent += cost;
         results.filter(r => !r.ok).forEach(r => console.log(`[analyse] ${r.model} FEHLER: ${r.error}`));
-        console.log(`[analyse] ${Date.now() - t0} ms, ok=${results.filter(r => r.ok).length}/3, Kosten ≈ $${cost.toFixed(5)}, heute $${spent.toFixed(4)}/${DAILY_BUDGET}, Code ${sess.c} ${count(kc)}/${LIMIT_PER_CODE}`);
+        const cap = sess.kind === 'account' && sess.tier === 'free' ? FREE_WEEKLY : (sess.kind === 'account' ? PRO_DAILY : LIMIT_PER_CODE);
+        console.log(`[analyse] ${Date.now() - t0} ms, ok=${results.filter(r => r.ok).length}/${results.length}, Kosten ≈ $${cost.toFixed(5)}, heute $${spent.toFixed(4)}/${DAILY_BUDGET}, ${who} ${usedNow()}/${cap}`);
         return send(res, results.some(r => r.ok) ? 200 : 502, { results, cost, edit: consensus(results.filter(r => r.ok)), usage: usage(sess, ip) });
       } else {
         const r = await withRetry(TEXT_MODEL, TEXT_PROMPT(goal), b.image, 2500); spent += r.usage?.cost || 0;
         const j = r.data; const fix = (x) => ({ text: String(x?.text || ''), hashtags: (Array.isArray(x?.hashtags) ? x.hashtags : []).map(h => '#' + String(h).replace(/^#+/, '').replace(/\s+/g, '')).slice(0, 10) });
-        console.log(`[texte] Kosten ≈ $${(r.usage?.cost || 0).toFixed(5)}, heute $${spent.toFixed(4)}/${DAILY_BUDGET}`);
+        console.log(`[texte] Kosten ≈ $${(r.usage?.cost || 0).toFixed(5)}, heute $${spent.toFixed(4)}/${DAILY_BUDGET}, ${who}`);
         return send(res, 200, { de: fix(j.de), en: fix(j.en), model: TEXT_MODEL, cost: r.usage?.cost || 0 });
       }
     }
     send(res, 404, { error: 'Nicht gefunden' });
-  } catch (e) { console.log(`[fehler] ${p}: ${e.message}`); if (!res.headersSent) send(res, e.status || 500, { error: e.status ? e.message : 'Interner Fehler' }); }
+  } catch (e) { console.log(`[fehler] ${p}: ${safeErr(e)}`); if (!res.headersSent) send(res, e.status || 500, { error: e.status ? e.message : 'Interner Fehler' }); }
 });
 server.requestTimeout = 180000; server.headersTimeout = 30000;
 // Render Free schläft nach ~15 Min. ohne eingehende Anfragen ein. RENDER_EXTERNAL_URL setzt Render selbst.
@@ -287,14 +681,14 @@ function startKeepAwake() {
         try {
           r.resume();
           if (r.statusCode !== 200) console.log(`[keep-awake] HTTP ${r.statusCode}`);
-        } catch (e) { console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`); }
+        } catch (e) { console.log(`[keep-awake] ${safeErr(e)}`); }
       });
       req.on('socket', (socket) => { try { socket.unref(); } catch {} }); // Request hält den Prozess beim Beenden nicht offen
       req.on('timeout', () => { try { req.destroy(); } catch {} });
-      req.on('error', (e) => console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`));
+      req.on('error', (e) => console.log(`[keep-awake] ${safeErr(e)}`));
       req.end();
     } catch (e) {
-      console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`);
+      console.log(`[keep-awake] ${safeErr(e)}`);
       if (req) { req.on('error', () => {}); try { req.destroy(); } catch {} }
     }
   };
@@ -305,9 +699,22 @@ function startKeepAwake() {
   return timer;
 }
 let keepAwakeTimer = null;
-server.listen(PORT, () => {
-  console.log(`Lumen läuft auf Port ${PORT} · Schlüssel ${KEY ? 'gesetzt' : 'FEHLT'}${MOCK ? ' · TESTMODUS' : ''} · Zugang ${AUTH_REQUIRED ? ACCESS_CODES.length + ' Code(s)' : 'OFFEN (keine ACCESS_CODES)'} · Limit ${LIMIT_PER_CODE}/Code/Tag · Budget $${DAILY_BUDGET}/Tag${process.env.SESSION_SECRET ? '' : ' · WARNUNG: SESSION_SECRET fehlt'}`);
-  keepAwakeTimer = startKeepAwake();
-});
-const stop = () => { console.log('Beende …'); if (keepAwakeTimer) clearInterval(keepAwakeTimer); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 10000).unref(); };
-process.on('SIGTERM', stop); process.on('SIGINT', stop);
+function boot() {
+  server.listen(PORT, () => {
+    console.log(`Lumen läuft auf Port ${PORT} · Schlüssel ${KEY ? 'gesetzt' : 'FEHLT'}${MOCK ? ' · TESTMODUS' : ''} · Zugang ${AUTH_REQUIRED ? ACCESS_CODES.length + ' Code(s)' : 'OFFEN (keine ACCESS_CODES)'} · Limit ${LIMIT_PER_CODE}/Code/Tag · Budget $${DAILY_BUDGET}/Tag · Mail ${RESEND_API_KEY && MAIL_FROM ? 'Resend' : 'FEHLT'} · Stripe ${stripeReady() ? 'bereit' : 'aus'}${process.env.SESSION_SECRET ? '' : ' · WARNUNG: SESSION_SECRET fehlt'}`);
+    if (!RESEND_API_KEY) console.log('[mail] WARNUNG: RESEND_API_KEY fehlt – Anmeldelinks werden nicht per E-Mail versendet' + (PROD ? '' : ' (in der Entwicklung steht der Link in dieser Konsole)'));
+    else if (!MAIL_FROM) console.log('[mail] WARNUNG: MAIL_FROM fehlt – Anmeldelinks werden nicht per E-Mail versendet');
+    if (!stripeReady()) console.log('[stripe] Hinweis: STRIPE_SECRET_KEY oder Preis-IDs fehlen – im Kauf-Dialog steht „Pro bald verfügbar“');
+    else if (!STRIPE_WEBHOOK_SECRET) console.log('[stripe] WARNUNG: STRIPE_WEBHOOK_SECRET fehlt – Webhooks werden abgelehnt, der Abo-Status kommt aus der Stripe-API');
+    keepAwakeTimer = startKeepAwake();
+  });
+  const stop = () => { console.log('Beende …'); if (keepAwakeTimer) clearInterval(keepAwakeTimer); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 10000).unref(); };
+  process.on('SIGTERM', stop); process.on('SIGINT', stop);
+}
+if (require.main === module) boot();
+
+module.exports = {
+  sign, verifySigned, verifyStripeSignature, normEmail, readSession, readMagic, decideAccess,
+  weekBump, weekCount, allowRate, takeNonce, hash, resetEphemeral, formEncode,
+  FREE_WEEKLY, PRO_DAILY, FREE_LESSONS,
+};

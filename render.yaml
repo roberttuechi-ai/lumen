@@ -28,3 +28,15 @@ services:
         value: "1"
       - key: KEEP_AWAKE
         value: "1"        # 0 = Free-Plan darf nach 15 Min. ohne Anfragen einschlafen
+      - key: RESEND_API_KEY
+        sync: false       # API-Schlüssel von resend.com
+      - key: MAIL_FROM
+        sync: false       # z. B. "Lumen <login@deine-domain.at>" (Domain bei Resend verifiziert)
+      - key: STRIPE_SECRET_KEY
+        sync: false       # sk_live_… aus dem Stripe-Dashboard
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false       # whsec_… des Endpunkts /stripe/webhook
+      - key: STRIPE_PRICE_MONTHLY
+        sync: false       # Price-ID für 4,99 € pro Monat
+      - key: STRIPE_PRICE_YEARLY
+        sync: false       # Price-ID für 39 € pro Jahr

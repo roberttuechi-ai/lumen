@@ -22,23 +22,36 @@ small{color:var(--mu)}
 <h2>2. Fotos, die du analysieren lässt</h2>
 <ul>
 <li>Dein Foto wird in deinem Browser verkleinert (max. 1024 px) und zur Analyse an unseren Server übertragen.</li>
-<li>Der Server leitet es <b>ausschließlich zur Analyse</b> über den Dienst <b>OpenRouter</b> (OpenRouter, Inc., USA) an drei KI-Modellanbieter weiter: <b>OpenAI</b>, <b>Google</b> und <b>Anthropic</b>. Für die Social-Media-Texte geht das Foto ein weiteres Mal an OpenAI.</li>
+<li>Der Server leitet es <b>ausschließlich zur Analyse</b> über den Dienst <b>OpenRouter</b> (OpenRouter, Inc., USA) an KI-Modellanbieter weiter. Im Gratis-Tarif ist das ein Modell von <b>Google</b>. Mit Pro oder einem Einladungscode sind es bis zu drei: <b>OpenAI</b>, <b>Google</b> und <b>Anthropic</b>. Social-Media-Texte (nur Pro bzw. Einladung) gehen ein weiteres Mal an OpenAI.</li>
 <li><b>Wir speichern deine Fotos nicht.</b> Sie werden nur im Arbeitsspeicher verarbeitet und nach der Antwort verworfen. Auch die Analyse-Ergebnisse speichern wir nicht auf dem Server.</li>
 <li>Wie lange OpenRouter und die Modellanbieter Daten aufbewahren oder protokollieren, richtet sich nach deren Bedingungen, siehe die <a href="https://openrouter.ai/privacy">Datenschutzerklärung von OpenRouter</a>.</li>
 <li>Lade bitte keine Fotos hoch, auf denen andere Personen ohne deren Einverständnis erkennbar sind, und keine sensiblen Inhalte.</li>
 </ul>
 <p><b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung der von dir angeforderten Analyse). Sind auf dem Foto Personen erkennbar, bist du dafür verantwortlich, dass du das Foto verwenden darfst.</p>
 <h2>3. Übermittlung in Drittländer (USA)</h2>
-<p>OpenRouter und die Modellanbieter sitzen in den USA. Die Übermittlung erfolgt auf Grundlage des EU-US Data Privacy Framework bzw. von EU-Standardvertragsklauseln gemäß Art. 46 DSGVO.</p>
-<h2>4. Zugangscode und Session-Cookie</h2>
-<p>In der Testphase ist Lumen nur mit Einladungscode nutzbar. Nach der Anmeldung setzen wir ein <b>technisch notwendiges Cookie</b> („lumen_s“, Gültigkeit 14 Tage). Es enthält nur eine verschlüsselte Prüfsumme deines Codes und ein Ablaufdatum, keine Namen oder E-Mail-Adressen. Rechtsgrundlage: § 165 Abs. 3 TKG 2021 und Art. 6 Abs. 1 lit. f DSGVO (Schutz vor Missbrauch). Es gibt keine Tracking- oder Werbe-Cookies.</p>
-<h2>5. Missbrauchsschutz (Nutzungslimits)</h2>
-<p>Um Kosten und Missbrauch zu begrenzen, zählen wir pro Code und pro IP-Adresse die Anzahl der Analysen eines Tages. Diese Zähler liegen nur im Arbeitsspeicher des Servers und werden täglich bzw. bei jedem Neustart gelöscht. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO.</p>
-<h2>6. Hosting und Server-Protokolle</h2>
+<p>OpenRouter, die Modellanbieter und Resend sitzen in den USA. Stripe verarbeitet Zahlungen über Stripe Payments Europe (Irland); Konzernstellen in den USA können beteiligt sein. Die Übermittlung in die USA erfolgt auf Grundlage des EU-US Data Privacy Framework bzw. von EU-Standardvertragsklauseln gemäß Art. 46 DSGVO. Details stehen in den Abschnitten zu Resend und Stripe.</p>
+<h2>4. Konto per E-Mail (Resend)</h2>
+<p>Du kannst ein Konto mit deiner E-Mail-Adresse anlegen. Wir schicken dir einen einmalig nutzbaren Anmeldelink (15 Minuten gültig). Dafür nutzen wir den Versanddienst <b>Resend</b> (Resend, Inc., USA). Resend erhält deine E-Mail-Adresse und den Inhalt der Nachricht (den Link). Wir betreiben keine eigene Nutzerdatenbank: Die Adresse steht im Anmelde-Cookie und, wenn du Pro kaufst, bei Stripe.</p>
+<p>Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Anlegen und Führen des Kontos). Datenschutzerklärung von Resend: <a href="https://resend.com/legal/privacy-policy" rel="noopener">resend.com/legal/privacy-policy</a>.</p>
+<!-- TODO RECHTLICHE PRÜFUNG: Auftragsverarbeitungsvertrag mit Resend und die Rechtsgrundlage der Übermittlung in die USA (Data Privacy Framework bzw. Standardvertragsklauseln) gegen die aktuellen Vertragsunterlagen prüfen. -->
+<h2>5. Cookies</h2>
+<p>Nach der Anmeldung setzen wir ein <b>technisch notwendiges Cookie</b> namens „lumen_s“ (HttpOnly, SameSite=Lax, über HTTPS mit Secure). Es gibt keine Tracking- oder Werbe-Cookies.</p>
+<ul>
+<li><b>Einladungscode:</b> signierte Prüfsumme des Codes und Ablaufdatum, 14 Tage. Keine E-Mail-Adresse.</li>
+<li><b>E-Mail-Konto:</b> deine E-Mail-Adresse und ein Ablaufdatum, signiert, 30 Tage. Damit erkennen wir dein Konto und deinen Tarif, ohne ein Passwort zu speichern.</li>
+</ul>
+<p>Rechtsgrundlage: § 165 Abs. 3 TKG 2021 und Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO (Bereitstellung des Kontos und Schutz vor Missbrauch).</p>
+<h2>6. Zahlungen (Stripe)</h2>
+<p>Bezahlte Abos laufen über <b>Stripe</b> (Stripe Payments Europe, Ltd., Irland, und Stripe, Inc., USA). Beim Kauf gibst du Zahlungsdaten auf der Seite von Stripe ein. Wir speichern keine Kartennummern. Stripe verarbeitet insbesondere deine E-Mail-Adresse, die Kundennummer, den Abo-Status und die Zahlungsart, damit wir erkennen können, ob Pro aktiv ist. Den Abo-Status fragen wir bei Stripe ab und halten ihn wenige Minuten im Arbeitsspeicher. Kündigen und Rechnungen laufen über das Stripe-Kundenportal („Abo verwalten“).</p>
+<p>Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Vertrag). Datenschutzerklärung von Stripe: <a href="https://stripe.com/privacy" rel="noopener">stripe.com/privacy</a>.</p>
+<!-- TODO RECHTLICHE PRÜFUNG: Stripe-DPA, die Rollen (eigene Verantwortlichkeit für Zahlungsdaten vs. Auftragsverarbeitung) und die Drittlandübermittlung anwaltlich bestätigen. -->
+<h2>7. Missbrauchsschutz (Nutzungslimits)</h2>
+<p>Um Kosten und Missbrauch zu begrenzen, zählen wir Analysen: beim Gratis-Konto drei pro rollierende Woche, bei Pro 15 pro Tag, bei Einladungscodes das jeweilige Tageslimit, zusätzlich ein Limit pro IP-Adresse und ein globales Tagesbudget. Diese Zähler liegen nur im Arbeitsspeicher und werden bei einem Neustart gelöscht; Tageszähler zusätzlich um Mitternacht (Wien). Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO.</p>
+<h2>8. Hosting und Server-Protokolle</h2>
 <p>Die App wird bei Render Services, Inc. (USA), Serverstandort Frankfurt am Main (EU), betrieben. Beim Aufruf verarbeitet der Hoster technisch notwendige Daten (z. B. IP-Adresse, Zeitpunkt, aufgerufene Adresse) in Server-Protokollen. Unsere eigenen Protokolle enthalten keine Fotos, nur Zeit, Kosten und gekürzte Code-Prüfsummen. Die Speicherdauer richtet sich nach der <a href="https://render.com/privacy">Datenschutzerklärung von Render</a>.</p>
-<h2>7. Daten in deinem Browser</h2>
+<h2>9. Daten in deinem Browser</h2>
 <p>Dein Lernfortschritt im Fotokurs wird nur lokal in deinem Browser (localStorage) gespeichert und nicht an uns übertragen. Du kannst ihn jederzeit über die Browsereinstellungen löschen.</p>
-<h2>8. Deine Rechte</h2>
+<h2>10. Deine Rechte</h2>
 <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15–21 DSGVO). Wende dich dazu an <a href="mailto:robert.tuechi@gmail.com">robert.tuechi@gmail.com</a>.</p>
 <p>Du kannst dich außerdem bei der <b>Österreichischen Datenschutzbehörde</b> beschweren: Barichgasse 40–42, 1030 Wien, <a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>.</p>
-<p style="margin-top:36px"><small><a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a></small></p></main></body></html>
+<p style="margin-top:36px"><small><a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a> · <a href="/agb">AGB</a> · <a href="/widerruf">Widerruf</a></small></p></main></body></html>

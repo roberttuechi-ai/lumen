@@ -94,8 +94,12 @@ Der Server schreibt die tatsächlichen Kosten (`usage.cost` von OpenRouter) in d
 
 ## Projektstruktur
 ```
-server.js              Server: App ausliefern, Login, Limits, KI-Anfragen
-public/                index.html (App), datenschutz.html, impressum.html, agb.html, widerruf.html, Manifest, Icons
+server.js              Server: App ausliefern, Login, Limits, KI-Anfragen, Sprache
+public/index.html      App
+public/i18n.js         Wörterbuch (de, en, it, fr, es), ohne npm-Paket
+public/course.js       Fotokurs in denselben fünf Sprachen
+public/                datenschutz.html, impressum.html, agb.html, widerruf.html (deutsch, verbindlich)
+public/en/             dieselben vier Seiten auf Englisch (Übersetzungshilfe)
 package.json           Start mit "npm start"
 render.yaml            Blueprint für Render.com (Free-Plan, Region Frankfurt)
 Dockerfile             Alternative für Railway, Fly.io oder einen eigenen Server
@@ -150,14 +154,25 @@ Das globale Tagesbudget (`DAILY_BUDGET_USD`) gilt für alle Tarife.
 2. **Stripe-Produkt** „Lumen Pro“ mit zwei Preisen, Währung EUR, wiederkehrend:
    - Monat: **4,99 €** → Price-ID nach `STRIPE_PRICE_MONTHLY`
    - Jahr: **39 €** → Price-ID nach `STRIPE_PRICE_YEARLY`
-3. **Zahlungsmethoden** im Stripe-Dashboard aktivieren (Karten und was sonst automatisch angeboten werden soll). Der Checkout setzt keine feste Liste, damit Stripe die automatischen Methoden aus dem Dashboard nimmt. Aktionscodes sind erlaubt, die Sprache ist Deutsch.
+3. **Zahlungsmethoden** im Stripe-Dashboard aktivieren (Karten und was sonst automatisch angeboten werden soll). Der Checkout setzt keine feste Liste, damit Stripe die automatischen Methoden aus dem Dashboard nimmt. Aktionscodes sind erlaubt. Die Checkout-Sprache folgt der gewählten App-Sprache (`de`, `en`, `it`, `fr` oder `es`).
 4. **Webhook** im Stripe-Dashboard anlegen:
    - URL: `https://lumen-67oi.onrender.com/stripe/webhook`
    - Ereignisse: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
    - Signing-Secret nach `STRIPE_WEBHOOK_SECRET`
 5. **Kundenportal** im Stripe-Dashboard aktivieren (Kündigen, Zahlungsmittel, Rechnungen) und die Rückkehr-URL auf `https://lumen-67oi.onrender.com` setzen.
 6. In **Render** die neuen Variablen aus `render.yaml` eintragen (`sync: false`, Render fragt sie ab). Bestehende Variablen (`OPENROUTER_API_KEY`, `ACCESS_CODES`, `SESSION_SECRET`, Limits, Budget) bleiben.
-7. **AGB und Widerruf** (`public/agb.html`, `public/widerruf.html`) vor dem Verkauf juristisch prüfen. Offene Stellen sind im HTML als Kommentar `TODO RECHTLICHE PRÜFUNG` markiert und auf der Seite nicht sichtbar. Das betrifft auch Umsatzsteuer (Kleinunternehmer oder Bruttopreis).
+7. **AGB und Widerruf** (`public/agb.html`, `public/widerruf.html`) vor dem Verkauf juristisch prüfen. Offene Stellen sind im HTML als Kommentar `TODO RECHTLICHE PRÜFUNG` markiert und auf der Seite nicht sichtbar. Das betrifft auch Umsatzsteuer (Kleinunternehmer oder Bruttopreis). Die englischen Seiten unter `public/en/` sind nur eine Übersetzungshilfe. Verbindlich bleibt der deutsche Text. Dafür braucht es keine neue Render-Variable.
+
+## Sprachen
+
+Die Oberfläche, die Magic-Link-Mail, Fehlermeldungen, der Fotokurs, die KI-Bewertung und die Instagram-Texte folgen der Sprache des Nutzers.
+
+- Unterstützt: Deutsch (`de`), Englisch (`en`), Italienisch (`it`), Französisch (`fr`), Spanisch (`es`).
+- Ohne eigene Wahl nimmt der Server den ersten passenden Eintrag aus `Accept-Language`. `de-AT`, `de-DE` und `de-CH` werden Deutsch. `it-IT` wird Italienisch. Passt keine Sprache (zum Beispiel `pt-BR`), ist die Seite Englisch.
+- Im Browser gilt dieselbe Reihenfolge: Cookie `lumen_lang`, sonst `localStorage` (`lumenLang`), sonst `navigator.languages`, sonst Englisch. Der Schalter in der Kopfzeile schreibt Cookie und localStorage. Das Cookie ist nicht HttpOnly, ein Jahr gültig, SameSite=Lax, damit der Server die Mail, Stripe (`locale`) und die Prompts in dieser Sprache ausliefert.
+- `<html lang>` setzt der Browser auf den gewählten Code.
+- Impressum, Datenschutz, AGB und Widerruf bleiben auf Deutsch verbindlich (`/impressum` und so weiter). Englische Fassungen liegen unter `/en/…` und sagen auf der Seite, dass die deutsche Fassung vorgeht. Italienisch, Französisch und Spanisch verlinken auf die englischen Seiten.
+- Es kommt kein neues npm-Paket dazu. Die Texte stehen in `public/i18n.js` und `public/course.js`.
 
 ## Produktion
 - `PORT` kommt aus der Umgebung (Render und Railway setzen ihn automatisch).

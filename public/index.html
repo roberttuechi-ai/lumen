@@ -90,6 +90,30 @@ h3{font-size:15px;font-weight:600;margin-bottom:10px}
 .sharehint svg{margin-top:1px;flex-shrink:0;color:var(--ac)}
 #shareCopyWrap{margin-top:12px}#shareCopyWrap .copy{margin-top:0}
 #shareBtn[hidden],#shareHint[hidden],#shareCopyWrap[hidden]{display:none!important}
+[hidden]{display:none!important}
+button.badge{font-family:inherit;cursor:pointer}
+.field.mail{letter-spacing:0}
+.modal{position:fixed;inset:0;z-index:30;background:#000a;display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:430px;max-height:92vh;overflow:hidden;background:var(--bg);border:1px solid var(--line);border-radius:22px 22px 0 0;padding:0;display:flex;flex-direction:column}
+.sheetscroll{overflow:auto;padding:18px 18px 10px;min-height:0}
+.sheetdock{flex:0 0 auto;padding:8px 18px 16px;background:var(--bg);border-top:1px solid var(--line)}
+.sheetdock:not(:has(#buyBox:not([hidden]))):not(:has(#proSoon:not([hidden]))){display:none}
+.sheet h2{font-size:26px}
+.pricegrid{display:grid;gap:10px;margin-top:12px}
+.pcard{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:14px 14px 12px}
+.pcard.pro{border-color:#5a4a33;background:#1a1713}
+.pcard .amt{font-size:28px;font-weight:600;letter-spacing:-.03em;margin-top:4px}
+.pcard .amt span{font-size:13px;font-weight:500;color:var(--mu)}
+.pcard ul{list-style:none;margin-top:8px}
+.pcard li{font-size:13.5px;color:#d6d3cb;padding:3px 0 3px 16px;position:relative}
+.pcard li:before{content:"";position:absolute;left:0;top:10px;width:7px;height:7px;border-radius:50%;background:var(--ac)}
+.save{display:inline-block;margin-left:6px;background:var(--ac);color:#111;font-size:11px;font-weight:700;border-radius:20px;padding:2px 8px;vertical-align:2px}
+.consent{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:13px;color:#d6d3cb;line-height:1.45}
+.consent input{width:18px;height:18px;margin-top:2px;flex-shrink:0;accent-color:var(--ac)}
+.protag{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#111;background:var(--ac);border-radius:8px;padding:3px 6px}
+.soon{text-align:center;color:var(--ac2);font-weight:600;margin-top:14px}
+.hintbtn{background:none;border:0;font:inherit;color:var(--ac2);cursor:pointer;padding:0}
+.lockcell{cursor:pointer;color:var(--ac)}
 .cmp .lbl{position:absolute;top:12px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:#0009;backdrop-filter:blur(6px);padding:5px 9px;border-radius:8px}
 .cmp .line{position:absolute;top:0;bottom:0;width:2px;background:#fff;left:50%;transform:translateX(-1px)}
 .cmp .knob{position:absolute;top:50%;left:50%;width:34px;height:34px;border-radius:50%;background:#fff;color:#111;transform:translate(-50%,-50%);display:grid;place-items:center;box-shadow:0 4px 16px #0008}
@@ -130,7 +154,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:rgba(13,13,14,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:flex;justify-content:space-around;padding:9px 6px 22px;border-top:1px solid var(--line);z-index:5}
 nav button{background:none;border:0;color:var(--mu2);font-family:inherit;font-weight:500;font-size:10.5px;line-height:1.2;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 6px;transition:color .2s;min-width:52px}
 nav button.on{color:var(--tx)}nav.hide{display:none}
-.toast{white-space:normal;text-align:left;max-width:min(340px,calc(100vw - 36px));position:fixed;bottom:100px;left:50%;transform:translate(-50%,10px);opacity:0;background:var(--tx);color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:13px;transition:.25s;pointer-events:none;z-index:9;display:flex;gap:8px;align-items:center}
+.toast{white-space:normal;text-align:left;max-width:min(340px,calc(100vw - 36px));position:fixed;bottom:100px;left:50%;transform:translate(-50%,10px);opacity:0;background:var(--tx);color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:13px;transition:.25s;pointer-events:none;z-index:50;display:flex;gap:8px;align-items:center}
 .toast span{min-width:0}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 </style></head><body>
@@ -154,6 +178,8 @@ nav button.on{color:var(--tx)}nav.hide{display:none}
 <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
 <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></symbol>
 <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.4-3 3.8-4.5 7-4.5S17.6 16 19 19"/></symbol>
 <symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></symbol>
 <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 7l-4 5 4 5M16 7l4 5-4 5"/></symbol>
 <symbol id="i-q" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h0"/></symbol>
@@ -162,31 +188,38 @@ nav button.on{color:var(--tx)}nav.hide{display:none}
 
 <!-- START -->
 <section class="screen" id="login">
-<div class="top"><span class="brand">Lumen</span><span class="badge">Testphase</span></div>
-<div class="hero" style="height:220px"><svg viewBox="0 0 390 220" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1916"/><stop offset="1" stop-color="#0d0d0e"/></linearGradient></defs><rect width="390" height="220" fill="url(#lg)"/><circle cx="195" cy="110" r="62" fill="none" stroke="#c9a97c" stroke-width="5"/><circle cx="195" cy="110" r="25" fill="#c9a97c"/><path d="M110 110h40M240 110h40M195 25v40M195 155v40" stroke="#c9a97c" stroke-width="2.5" stroke-linecap="round" opacity=".5"/></svg></div>
-<div class="eyebrow">Geschlossene Testphase</div><h1>Willkommen bei Lumen</h1>
-<p class="sub">Gib deinen persönlichen Einladungscode ein, um die KI-Fotoanalyse zu testen.</p>
-<form class="sec" id="loginForm" onsubmit="doLogin(event)"><label class="eyebrow" for="code" style="display:block">Einladungscode</label>
+<div class="top"><span class="brand">Lumen</span><span class="badge">Anmelden</span></div>
+<div class="hero" style="height:160px"><svg viewBox="0 0 390 160" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1916"/><stop offset="1" stop-color="#0d0d0e"/></linearGradient></defs><rect width="390" height="160" fill="url(#lg)"/><circle cx="195" cy="80" r="46" fill="none" stroke="#c9a97c" stroke-width="5"/><circle cx="195" cy="80" r="18" fill="#c9a97c"/><path d="M120 80h28M242 80h28M195 18v28M195 114v28" stroke="#c9a97c" stroke-width="2.5" stroke-linecap="round" opacity=".5"/></svg></div>
+<div class="eyebrow">Konto ohne Passwort</div><h1>Willkommen bei Lumen</h1>
+<p class="sub">Trag deine E-Mail ein. Wir schicken einen Anmeldelink, 15 Minuten gültig.</p>
+<form class="sec" id="magicForm" onsubmit="sendMagic(event)"><label class="eyebrow" for="email" style="display:block">E-Mail</label>
+<input class="field mail" id="email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="du@example.com" required>
+<p id="magicMsg" style="margin-top:10px;min-height:20px"></p>
+<button class="btn" type="submit" id="magicBtn">Link senden</button></form>
+<div id="codeBlock">
+<p class="sub" style="text-align:center;margin-top:8px">oder mit Einladungscode</p>
+<form id="loginForm" onsubmit="doLogin(event)"><label class="eyebrow" for="code" style="display:block">Einladungscode</label>
 <input class="field" id="code" name="code" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" placeholder="z. B. LUMEN-XXXX" required>
 <p class="err" id="loginErr" style="margin-top:10px;min-height:20px"></p>
-<button class="btn" type="submit" id="loginBtn">Anmelden</button></form>
+<button class="btn ghost" type="submit" id="loginBtn">Code einlösen</button></form>
+</div>
 <p class="sub" style="font-size:12.5px;margin-top:18px">Deine Fotos werden nur zur Analyse an KI-Anbieter übertragen und nicht gespeichert.</p>
-<div class="legal"><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a></div>
+<div class="legal"><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a><a href="/agb">AGB</a><a href="/widerruf">Widerruf</a></div>
 </section>
 
 <section class="screen active" id="start">
-<div class="top"><span class="brand">Lumen</span><span class="badge">Testphase</span></div>
+<div class="top"><span class="brand">Lumen</span><button class="badge" id="tierBadge" type="button" onclick="go('konto')" aria-label="Konto">Testphase</button></div>
 <div class="hero"><svg viewBox="0 0 390 300" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2420"/><stop offset=".55" stop-color="#b98a5e"/><stop offset=".56" stop-color="#2b2724"/><stop offset="1" stop-color="#121110"/></linearGradient></defs><rect width="390" height="300" fill="url(#hs)"/><circle cx="260" cy="168" r="30" fill="#ead7b5" opacity=".9"/><path d="M0 190 L90 130 L170 185 L250 150 L390 200 V300 H0Z" fill="#1a1816"/><g stroke="#fff" stroke-opacity=".35" stroke-width="1"><path d="M130 0V300M260 0V300M0 100H390M0 200H390"/></g><circle cx="260" cy="200" r="5" fill="none" stroke="#fff" stroke-opacity=".8"/></svg></div>
 <div class="eyebrow">KI-Fotoassistent</div>
 <h1>Bessere Fotos.<br>Verstehen, warum.</h1>
-<p class="sub">Drei KI-Modelle bewerten dein Bild – und jede Bewertung wird zur kleinen Fotolektion.</p>
+<p class="sub">Gratis mit Gemini starten. Pro vergleicht drei KIs – und jede Bewertung wird zur Fotolektion.</p>
 <div class="sec">
-<div class="feat"><div class="ic"><svg class="i"><use href="#i-chart"/></svg></div><div><b>Bewertung im Vergleich</b><span>GPT, Gemini und Claude nebeneinander</span></div></div>
+<div class="feat"><div class="ic"><svg class="i"><use href="#i-chart"/></svg></div><div><b>Bewertung im Vergleich</b><span>Mit Pro: GPT, Gemini und Claude</span></div></div>
 <div class="feat"><div class="ic"><svg class="i"><use href="#i-book"/></svg></div><div><b>Lernen am eigenen Bild</b><span>Grundlagen, Diagramme, Tipps und Quiz</span></div></div>
 <div class="feat"><div class="ic"><svg class="i"><use href="#i-sliders"/></svg></div><div><b>Bearbeiten &amp; teilen</b><span>Vorher/Nachher und fertige Texte</span></div></div>
 </div>
 <button class="btn" onclick="go('upload')">Loslegen</button>
-<div class="legal"><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a><button class="logoutL" onclick="doLogout()" style="display:none">Abmelden</button></div>
+<div class="legal"><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a><a href="/agb">AGB</a><a href="/widerruf">Widerruf</a><button type="button" onclick="go('konto')">Konto</button><button class="logoutL" onclick="doLogout()" style="display:none">Abmelden</button></div>
 </section>
 
 <!-- UPLOAD -->
@@ -203,7 +236,7 @@ nav button.on{color:var(--tx)}nav.hide{display:none}
 <section class="screen" id="analyse">
 <div class="top"><button class="iconbtn" onclick="go('upload')" aria-label="Zurück"><svg class="i"><use href="#i-back"/></svg></button><span class="badge" id="aBadge">Beispieldaten · keine echte KI</span><span style="width:36px"></span></div>
 <div id="loadBox" style="display:none"><div class="ldphoto"><img class="pimg" alt=""><div class="scan"></div></div>
-<div class="sec"><div class="eyebrow">Analyse läuft</div><h2>Drei Modelle sehen sich dein Foto an</h2><p class="sub">Das dauert meist 10–30 Sekunden.</p></div>
+<div class="sec"><div class="eyebrow">Analyse läuft</div><h2 id="loadTitle">Drei Modelle sehen sich dein Foto an</h2><p class="sub" id="loadSub">Das dauert meist 10–30 Sekunden.</p></div>
 <div class="card sec" id="mstats"></div>
 <div class="sec"><div class="sk" style="height:16px;width:60%"></div><div class="sk" style="height:16px;width:85%;margin-top:10px"></div><div class="sk" style="height:16px;width:40%;margin-top:10px"></div></div></div>
 <div id="resBox"><div id="errBox"></div>
@@ -211,9 +244,10 @@ nav button.on{color:var(--tx)}nav.hide{display:none}
 <div class="overall"><div class="ring"><svg width="74" height="74"><circle cx="37" cy="37" r="32" stroke="#2a2a2e" stroke-width="5" fill="none"/><circle id="ringc" cx="37" cy="37" r="32" stroke="#c9a97c" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201" style="transition:stroke-dashoffset 1s ease"/></svg><b id="ovr">7.5</b></div>
 <div><div class="eyebrow" style="margin:0">Gesamteindruck</div><div style="font-weight:600;font-size:17px" id="otitle">Stimmungsvoll, mit Potenzial</div><div class="sub" style="margin-top:2px;font-size:13px" id="osub">Durchschnitt aus 3 Modellen</div></div></div>
 <div class="sec card" style="padding:12px 12px 4px">
-<div class="mhead"><span style="text-align:left">Kategorie</span><span>GPT</span><span>Gem.</span><span>Claude</span><span></span></div>
+<div class="mhead" id="mhead"><span style="text-align:left">Kategorie</span><span>GPT</span><span>Gem.</span><span>Claude</span><span></span></div>
 <div id="rows"></div></div>
 <div class="hint"><svg class="i" style="width:16px;height:16px"><use href="#i-book"/></svg>Tippe auf eine Kategorie für die Lektion</div>
+<button type="button" class="hint hintbtn" id="modelUpsell" hidden onclick="openPricing()">GPT und Claude gibt es mit Pro</button>
 <div class="sec" id="tipsBox"></div>
 <div class="sec"><div class="eyebrow">Kommentare der Modelle</div><div class="mcards" id="mcards"></div></div>
 <button class="btn" onclick="go('edit')">Vorschläge anwenden</button></div>
@@ -243,15 +277,16 @@ nav button.on{color:var(--tx)}nav.hide{display:none}
 <section class="screen" id="social">
 <div class="top"><button class="iconbtn" onclick="go('edit')" aria-label="Zurück"><svg class="i"><use href="#i-back"/></svg></button><span class="badge" id="sBadge">Beispieldaten</span><span style="width:36px"></span></div>
 <div class="eyebrow">Schritt 3 von 3</div><h2>Texte &amp; Hashtags</h2><p class="sub">Passend zur Bildstimmung formuliert.</p>
-<div class="card sec"><div class="eyebrow">Instagram · Deutsch</div><p class="txt" id="deT">Der Moment, kurz bevor die Sonne hinter den Bergen verschwindet. Warmes Licht, ruhige Linien – und für einen Augenblick steht alles still.</p><p class="tags" id="deH">#fotografie #goldenestunde #alpen #landschaftsfotografie #igersaustria #sonnenuntergang</p><button class="copy" onclick="cp(this)"><svg class="i" style="width:15px;height:15px"><use href="#i-copy"/></svg>Kopieren</button></div>
-<div class="card" style="margin-top:12px"><div class="eyebrow">Instagram · English</div><p class="txt" id="enT">That quiet moment just before the sun slips behind the mountains. Warm light, calm lines – and for a second, everything stands still.</p><p class="tags" id="enH">#photography #goldenhour #alps #landscapephotography #sunset</p><button class="copy" onclick="cp(this)"><svg class="i" style="width:15px;height:15px"><use href="#i-copy"/></svg>Kopieren</button></div>
+<div class="card sec" id="capLock" hidden><div class="eyebrow">Pro</div><h3 style="margin-top:6px">Instagram-Texte</h3><p class="sub">Bildunterschriften auf Deutsch und Englisch sind Teil von Lumen Pro.</p><button class="btn" type="button" onclick="openPricing()">Pro ansehen</button></div>
+<div class="card sec capReal"><div class="eyebrow">Instagram · Deutsch</div><p class="txt" id="deT">Der Moment, kurz bevor die Sonne hinter den Bergen verschwindet. Warmes Licht, ruhige Linien – und für einen Augenblick steht alles still.</p><p class="tags" id="deH">#fotografie #goldenestunde #alpen #landschaftsfotografie #igersaustria #sonnenuntergang</p><button class="copy" onclick="cp(this)"><svg class="i" style="width:15px;height:15px"><use href="#i-copy"/></svg>Kopieren</button></div>
+<div class="card capReal" style="margin-top:12px"><div class="eyebrow">Instagram · English</div><p class="txt" id="enT">That quiet moment just before the sun slips behind the mountains. Warm light, calm lines – and for a second, everything stands still.</p><p class="tags" id="enH">#photography #goldenhour #alps #landscapephotography #sunset</p><button class="copy" onclick="cp(this)"><svg class="i" style="width:15px;height:15px"><use href="#i-copy"/></svg>Kopieren</button></div>
 <button class="btn" onclick="addHist();go('verlauf')">Im Verlauf speichern</button>
 </section>
 
 <!-- LERNEN -->
 <section class="screen" id="lernen">
-<div class="top"><span class="brand">Lumen</span><span style="width:36px"></span></div>
-<div class="eyebrow">Fotokurs</div><h2>Lernen</h2><p class="sub">Sechs Lektionen – passend zu den Kategorien deiner Bewertung.</p>
+<div class="top"><span class="brand">Lumen</span><button class="iconbtn" type="button" onclick="go('konto')" aria-label="Konto"><svg class="i"><use href="#i-user"/></svg></button></div>
+<div class="eyebrow">Fotokurs</div><h2>Lernen</h2><p class="sub" id="learnSub">Sechs Lektionen – passend zu den Kategorien deiner Bewertung.</p>
 <div class="card sec"><div style="display:flex;justify-content:space-between;font-size:13px"><span>Kursfortschritt</span><span id="pt">0 von 6</span></div><div class="prog"><u id="pb" style="width:0"></u></div></div>
 <div class="card" style="margin-top:12px;padding:4px 16px" id="lessonList"></div>
 </section>
@@ -268,8 +303,52 @@ nav button.on{color:var(--tx)}nav.hide{display:none}
 <div class="li" onclick="go('analyse')"><div class="ph" style="background:linear-gradient(160deg,#556049,#171a14)"></div><div><b>Porträt im Augarten</b><small>1. Okt. 2026</small></div><span class="sc">5,9</span></div>
 </div>
 <button class="btn" onclick="go('upload')">Neues Foto analysieren</button>
-<div class="legal"><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a><button class="logoutL" onclick="doLogout()" style="display:none">Abmelden</button></div>
+<div class="legal"><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a><a href="/agb">AGB</a><a href="/widerruf">Widerruf</a><button type="button" onclick="go('konto')">Konto</button><button class="logoutL" onclick="doLogout()" style="display:none">Abmelden</button></div>
 </section>
+
+<!-- KONTO -->
+<section class="screen" id="konto">
+<div class="top"><button class="iconbtn" type="button" onclick="go('start')" aria-label="Zurück"><svg class="i"><use href="#i-back"/></svg></button><span class="brand">Lumen</span><span style="width:36px"></span></div>
+<div class="eyebrow">Konto</div>
+<h2 id="accTitle">Dein Konto</h2>
+<p class="sub" id="accLead"></p>
+<div class="card sec">
+<div class="eyebrow" id="accPlan">Tarif</div>
+<div style="font-weight:600;font-size:18px;word-break:break-all" id="accEmail">—</div>
+<p class="sub" id="accUsage" style="margin-top:6px"></p>
+</div>
+<button class="btn" id="accUpgrade" type="button" hidden onclick="openPricing()">Pro werden</button>
+<button class="btn ghost" id="accPortal" type="button" hidden onclick="openPortal()">Abo verwalten</button>
+<p class="soon" id="accSoon" hidden>Pro bald verfügbar</p>
+<button class="btn ghost" id="accLogout" type="button" hidden onclick="doLogout()">Abmelden</button>
+<button class="btn" id="accLogin" type="button" hidden onclick="go('login')">Mit E-Mail anmelden</button>
+<div class="legal"><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a><a href="/agb">AGB</a><a href="/widerruf">Widerruf</a></div>
+</section>
+
+<div class="modal" id="priceModal" hidden onclick="if(event.target===this)closePricing()">
+<div class="sheet" role="dialog" aria-labelledby="priceTitle">
+<div class="sheetscroll">
+<div class="top"><span class="brand">Lumen</span><button class="iconbtn" type="button" onclick="closePricing()" aria-label="Schließen" style="font-size:18px;line-height:1">×</button></div>
+<div class="eyebrow">Tarife</div>
+<h2 id="priceTitle">Gratis oder Pro</h2>
+<p class="sub" id="priceLead">Pro schaltet alle Modelle, Texte und den vollen Fotokurs frei.</p>
+<div class="pricegrid">
+<div class="pcard"><div class="eyebrow">Gratis</div><div class="amt">€0</div><ul><li>3 Analysen pro Woche</li><li>1 Modell (Gemini)</li><li>Erste zwei Fotokurs-Lektionen</li><li>Bearbeiten und Teilen</li></ul></div>
+<div class="pcard pro"><div class="eyebrow">Pro</div><div class="amt">€4,99 <span>/ Monat</span></div><p class="sub" style="margin-top:4px">oder €39 / Jahr <span class="save">spare 35%</span></p><ul><li>15 Analysen pro Tag</li><li>GPT, Gemini und Claude</li><li>Instagram-Texte</li><li>Voller Fotokurs</li></ul></div>
+</div>
+<p class="sub" id="priceNote" style="font-size:12.5px"></p>
+<div class="legal"><a href="/agb">AGB</a><a href="/widerruf">Widerruf</a><a href="/datenschutz">Datenschutz</a><a href="/impressum">Impressum</a></div>
+</div>
+<div class="sheetdock">
+<div id="buyBox">
+<label class="consent"><input type="checkbox" id="faggOk"><span>Ich akzeptiere die <a href="/agb" target="_blank" rel="noopener">AGB</a> und stimme ausdrücklich zu, dass Lumen sofort mit der Leistung beginnt. Mir ist bekannt, dass mein Widerrufsrecht damit erlischt (<a href="/widerruf" target="_blank" rel="noopener">Widerrufsbelehrung</a>, FAGG § 18).</span></label>
+<button class="btn" id="buyMonth" type="button" onclick="startCheckout('month')">Monatlich · €4,99</button>
+<button class="btn ghost" id="buyYear" type="button" onclick="startCheckout('year')">Jährlich · €39 · spare 35%</button>
+</div>
+<p class="soon" id="proSoon" hidden>Pro bald verfügbar</p>
+</div>
+</div>
+</div>
 
 <div class="toast" id="toast"><svg class="i" style="width:16px;height:16px"><use href="#i-check"/></svg><span></span></div>
 <nav id="nav" class="hide">
@@ -350,29 +429,38 @@ const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 let done=JSON.parse(localStorage.getItem('lumenDone')||'[]');
 // rows
 let total=0,mode='demo',real=null,texts=null,userImg=null,serverOk=false,tips=[];
+let plan='open',accountEmail='',stripeReady=false,priceMonth=false,priceYear=false,freeLessons=2,CATALOG=[];
+const SHORT={GPT:'GPT',Gemini:'Gem.',Claude:'Claude'};
 function renderAnalyse(){
-document.getElementById('rows').innerHTML=CAT.map(c=>{const m=Math.max(...c.s.filter(x=>x!==null));return `<div class="row" onclick="openL('${c.id}')"><span class="n"><svg class="i" style="width:18px;height:18px"><use href="#${c.ic}"/></svg>${c.n}</span>${c.s.map(v=>`<span class="v ${v===m?'hi':''}">${fmt(v)}</span>`).join('')}<svg class="i chev" style="width:16px;height:16px"><use href="#i-chev"/></svg></div>`}).join('');
-document.getElementById('mcards').innerHTML=MODELS.map(m=>`<div class="card mcard"><div class="mtitle"><span class="dot" style="background:${m[1]}"></span>${m[0]}${m[3]?`<small style="margin-left:auto;color:var(--mu2);font-weight:400;font-size:11px">${esc(m[3])}</small>`:''}</div><p class="${m[4]?'err':''}">${esc(m[2])}</p></div>`).join('');
+const head=document.getElementById('mhead');if(head)head.innerHTML='<span style="text-align:left">Kategorie</span>'+MODELS.map(m=>`<span>${SHORT[m[0]]||esc(m[0])}</span>`).join('')+'<span></span>';
+document.getElementById('rows').innerHTML=CAT.map(c=>{const nums=c.s.filter(x=>x!==null);const m=nums.length?Math.max(...nums):null;return `<div class="row" onclick="openL('${c.id}')"><span class="n"><svg class="i" style="width:18px;height:18px"><use href="#${c.ic}"/></svg>${c.n}</span>${c.s.map((v,i)=>MODELS[i]&&MODELS[i][5]?`<span class="v lockcell" onclick="event.stopPropagation();openPricing()" title="Pro"><svg class="i" style="width:14px;height:14px"><use href="#i-lock"/></svg></span>`:`<span class="v ${v!==null&&v===m?'hi':''}">${fmt(v)}</span>`).join('')}<svg class="i chev" style="width:16px;height:16px"><use href="#i-chev"/></svg></div>`}).join('');
+document.getElementById('mcards').innerHTML=MODELS.filter(m=>!m[5]).map(m=>`<div class="card mcard"><div class="mtitle"><span class="dot" style="background:${m[1]}"></span>${m[0]}${m[3]?`<small style="margin-left:auto;color:var(--mu2);font-weight:400;font-size:11px">${esc(m[3])}</small>`:''}</div><p class="${m[4]?'err':''}">${esc(m[2])}</p></div>`).join('');
 total=CAT.reduce((a,c)=>a+avg(c),0)/CAT.length;document.getElementById('ovr').textContent=fmt(total);
 document.getElementById('tipsBox').innerHTML=tips.length?`<div class="eyebrow">Top-Tipps für dieses Foto</div><ul class="card tips">${tips.map(t=>`<li><svg class="i" style="width:16px;height:16px"><use href="#i-check"/></svg><span>${esc(t)}</span></li>`).join('')}</ul>`:'';
+const up=document.getElementById('modelUpsell');if(up)up.hidden=!(plan==='free'&&MODELS.some(m=>m[5]));
 document.querySelectorAll('.badge#aBadge,.badge#sBadge').forEach(b=>b.style.display=(mode==='demo'||isMock)?'':'none');if(mode==='real'&&isMock){document.getElementById('aBadge').textContent='Testmodus · keine echte KI';document.getElementById('sBadge').textContent='Testmodus'}}
 renderAnalyse();
-function renderList(){document.getElementById('lessonList').innerHTML=CAT.map((c,i)=>`<div class="li" onclick="openL('${c.id}')"><div class="lic"><svg class="i"><use href="#${c.ic}"/></svg></div><div><b>${i+1}. ${c.n}</b><small>${c.c.map(x=>x[0]).join(' · ')}</small></div><span class="sc">${done.includes(c.id)?'<span class="done">✓ Erledigt</span>':'<svg class="i chev" style="width:16px;height:16px;color:#5f5e5a"><use href="#i-chev"/></svg>'}</span></div>`).join('');
+function lessonLocked(i){return plan==='free'&&i>=freeLessons}
+function renderList(){const sub=document.getElementById('learnSub');if(sub)sub.textContent=plan==='free'?'Die ersten zwei Lektionen sind gratis. Der Rest gehört zu Pro.':'Sechs Lektionen – passend zu den Kategorien deiner Bewertung.';
+document.getElementById('lessonList').innerHTML=CAT.map((c,i)=>{const lock=lessonLocked(i);const click=lock?'openPricing()':("openL('"+c.id+"')");const icon=lock?'i-lock':c.ic;const small=lock?'Mit Pro freischalten':c.c.map(x=>x[0]).join(' · ');const sc=lock?'<span class="protag">Pro</span>':(done.includes(c.id)?'<span class="done">✓ Erledigt</span>':'<svg class="i chev" style="width:16px;height:16px;color:#5f5e5a"><use href="#i-chev"/></svg>');return '<div class="li'+(lock?' locked':'')+'" onclick="'+click+'"><div class="lic"><svg class="i"><use href="#'+icon+'"/></svg></div><div><b>'+(i+1)+'. '+esc(c.n)+'</b><small>'+esc(small)+'</small></div><span class="sc">'+sc+'</span></div>'}).join('');
 document.getElementById('pt').textContent=done.length+' von 6';document.getElementById('pb').style.width=(done.length/6*100)+'%'}
 renderList();
 let from='analyse';
-function openL(id){const c=CAT.find(x=>x.id===id),i=CAT.indexOf(c);from=document.querySelector('.screen.active').id==='lernen'?'lernen':'analyse';
+function openL(id){const c=CAT.find(x=>x.id===id),i=CAT.indexOf(c);if(lessonLocked(i)){openPricing();return}from=document.querySelector('.screen.active').id==='lernen'?'lernen':'analyse';
+const bars=c.s.map((v,k)=>{if(MODELS[k]&&MODELS[k][5])return '';const w=v==null?0:v*10;return `<div class="bar"><span>${esc(MODELS[k]?MODELS[k][0]:'')}</span><i><u data-w="${w}"></u></i><em>${fmt(v)}</em></div>`}).join('');
+const nextLocked=i<5&&lessonLocked(i+1);
+const nextBtn=i<5?(nextLocked?`<button class="btn" type="button" onclick="openPricing()">Weitere Lektionen mit Pro</button>`:`<button class="btn ghost" type="button" onclick="openL('${CAT[i+1].id}')">Nächste Lektion: ${CAT[i+1].n}</button>`):'';
 document.getElementById('lessonBody').innerHTML=`
 <div class="top"><button class="iconbtn" onclick="go(from)" aria-label="Zurück"><svg class="i"><use href="#i-back"/></svg></button><span class="eyebrow" style="margin:0">Lektion ${i+1} von 6</span><span style="width:36px"></span></div>
 <div class="lhead"><div class="lic" style="width:52px;height:52px"><svg class="i" style="width:24px;height:24px"><use href="#${c.ic}"/></svg></div><div><div class="eyebrow" style="margin-bottom:2px">Fotokurs</div><h2>${c.n}</h2></div></div>
 <div class="card sec"><div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lscore">${fmt(avg(c))}<small> / 10</small></div>${mode==='demo'?'<span class="badge">Beispieldaten</span>':''}</div>
-<div class="bars">${c.s.map((v,k)=>`<div class="bar"><span>${MODELS[k][0]}</span><i><u data-w="${v*10}"></u></i><em>${fmt(v)}</em></div>`).join('')}</div></div>
+<div class="bars">${bars}</div></div>
 <div class="sec"><div class="eyebrow">Warum diese Punktzahl?</div>${mode==="real"?c.whys.map(w=>`<div style="margin-bottom:12px"><div class="eyebrow" style="margin-bottom:4px;color:var(--ac)">${w[0]}</div><p class="why">${esc(w[1])}</p></div>`).join(""):`<p class="why">${c.why}</p>`}</div>
 <div class="sec"><div class="eyebrow">Grundlagen</div>${c.c.map(x=>`<div class="card concept"><h3>${x[0]}</h3><div class="dg">${D[x[1]]}</div><p>${x[2]}</p></div>`).join('')}</div>
 <div class="sec"><div class="eyebrow">So verbesserst du es</div><ul class="card tips">${c.tips.map(t=>`<li><svg class="i" style="width:16px;height:16px"><use href="#i-check"/></svg><span>${t}</span></li>`).join('')}</ul></div>
 <div class="sec"><div class="eyebrow">Kurzes Quiz</div><div class="card"><div style="display:flex;gap:10px;font-weight:600"><svg class="i" style="color:var(--ac)"><use href="#i-q"/></svg>${c.q[0]}</div>${c.q[1].map((o,k)=>`<button class="opt" onclick="ans(this,${k},'${c.id}')">${o}</button>`).join('')}<p class="fb" id="fb"></p></div></div>
 <div class="card sec"><div style="display:flex;justify-content:space-between;font-size:13px"><span>Kursfortschritt</span><span id="lpt">${done.length} von 6</span></div><div class="prog"><u id="lpb" style="width:${done.length/6*100}%"></u></div></div>
-${i<5?`<button class="btn ghost" onclick="openL('${CAT[i+1].id}')">Nächste Lektion: ${CAT[i+1].n}</button>`:''}`;
+${nextBtn}`;
 go('lesson',true);setTimeout(()=>document.querySelectorAll('#lesson .bar u').forEach(u=>u.style.width=u.dataset.w+'%'),60)}
 function ans(b,k,id){const c=CAT.find(x=>x.id===id),opts=b.parentNode.querySelectorAll('.opt');opts.forEach((o,j)=>{o.disabled=true;if(j===c.q[2])o.classList.add('right')});const fb=document.getElementById('fb');fb.style.display='block';
 if(k===c.q[2]){fb.innerHTML='<b style="color:var(--ok)">Richtig!</b> '+c.q[3];if(!done.includes(id)){done.push(id);localStorage.setItem('lumenDone',JSON.stringify(done))}renderList();document.getElementById('lpt').textContent=done.length+' von 6';document.getElementById('lpb').style.width=(done.length/6*100)+'%';toast('Lektion abgeschlossen')}
@@ -380,10 +468,12 @@ else{b.classList.add('wrong');fb.innerHTML='<b style="color:var(--bad)">Nicht ga
 // placeholder image
 let img='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2a33"/><stop offset=".45" stop-color="#9b7553"/><stop offset=".62" stop-color="#e2b989"/></linearGradient></defs><rect width="800" height="800" fill="url(#g)"/><circle cx="540" cy="470" r="46" fill="#f6e3c2"/><path d="M0 520 L180 380 L330 500 L470 420 L640 500 L800 440 V800 H0Z" fill="#2a2420"/><path d="M0 620 L250 560 L520 640 L800 590 V800 H0Z" fill="#171412"/></svg>');
 function setImg(){document.querySelectorAll('.pimg').forEach(i=>i.src=img)}setImg();
-function go(id,keep){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));const nav=document.getElementById('nav');nav.classList.toggle('hide',id==='start'||id==='login');
+function go(id,keep){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));const nav=document.getElementById('nav');nav.classList.toggle('hide',id==='start'||id==='login'||id==='konto');
 const map={lesson:from};document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.s===(map[id]||id)));scrollTo(0,0);
-if(id==='social'&&mode==='real'&&!texts)loadTexts();
+if(id==='social'){applyCaptionLock();if(plan!=='free'&&mode==='real'&&!texts)loadTexts()}
 if(id==='edit')setupEdit();
+if(id==='konto')renderKonto();
+if(id==='lernen')renderList();
 if(id==='analyse'){const r=document.getElementById('ringc');r.style.strokeDashoffset=201;setTimeout(()=>r.style.strokeDashoffset=201*(1-total/10),60)}}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.s));
 document.getElementById('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{img=r.result;resize(r.result).then(d=>{userImg=d;texts=null});setImg();document.getElementById('drop').innerHTML='<img src="'+img+'" alt="Vorschau">'};r.readAsDataURL(f)};
@@ -398,20 +488,62 @@ const KEYMAP={aufbau:'aufbau',licht:'licht',fokus:'fokus',belichtung:'belichtung
 function resize(src,max=1024){return new Promise(res=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.85))};im.onerror=()=>res(null);im.src=src})}
 const srvEl=document.getElementById('srv');
 let authRequired=false,usageInfo=null;
-function showUsage(u){if(u)usageInfo=u;if(!serverOk||!usageInfo)return;srvEl.classList.remove('bad');srvEl.querySelector('span').textContent=(isMock?'TESTMODUS · ':'Echte KI bereit · ')+`heute ${usageInfo.used} von ${usageInfo.limit} Analysen`}
+const PLAN_BADGE={free:'Gratis',pro:'Pro',tester:'Testzugang',open:'Testphase'};
+function usageLine(u){if(!u)return '';const when=u.window==='week'?'diese Woche':'heute';return `${u.used} von ${u.limit} Analysen ${when}`}
+function showUsage(u){if(u)usageInfo=u;if(!serverOk||!usageInfo)return;srvEl.classList.remove('bad');const prefix=isMock?'TESTMODUS · ':(serverOk?'Echte KI bereit · ':'');srvEl.querySelector('span').textContent=prefix+usageLine(usageInfo)}
+function applyMe(me){authRequired=!!me.authRequired;plan=me.plan||(me.auth?'open':null);accountEmail=me.email||'';stripeReady=!!me.stripe;priceMonth=!!(me.prices&&me.prices.month);priceYear=!!(me.prices&&me.prices.year);if(me.freeLessons)freeLessons=me.freeLessons;if(me.usage)usageInfo=me.usage;
+ const badge=document.getElementById('tierBadge');if(badge)badge.textContent=PLAN_BADGE[plan]||'Lumen';
+ document.querySelectorAll('.logoutL').forEach(b=>b.style.display=(me.kind==='account'||me.kind==='code')?'':'none');
+ const codeBlock=document.getElementById('codeBlock');if(codeBlock)codeBlock.hidden=!me.authRequired;
+ renderList()}
+function applyCaptionLock(){const lock=plan==='free';const box=document.getElementById('capLock');if(box)box.hidden=!lock;document.querySelectorAll('.capReal').forEach(el=>{el.hidden=lock})}
+function renderKonto(){const up=document.getElementById('accUpgrade'),po=document.getElementById('accPortal'),soon=document.getElementById('accSoon'),out=document.getElementById('accLogout'),inn=document.getElementById('accLogin');
+ [up,po,soon,out,inn].forEach(el=>{if(el)el.hidden=true});
+ const planEl=document.getElementById('accPlan'),email=document.getElementById('accEmail'),lead=document.getElementById('accLead'),usage=document.getElementById('accUsage');
+ if(plan==='tester'){planEl.textContent='Testzugang';email.textContent='Einladungscode';lead.textContent='Dein Code schaltet die Pro-Funktionen frei: alle Modelle, Texte und den vollen Kurs.';usage.textContent=usageLine(usageInfo);out.hidden=false;return}
+ if(plan==='pro'){planEl.textContent='Pro';email.textContent=accountEmail||'—';lead.textContent='Alle drei Modelle, Instagram-Texte und der volle Fotokurs.';usage.textContent=usageLine(usageInfo);out.hidden=false;if(stripeReady)po.hidden=false;return}
+ if(plan==='free'){planEl.textContent='Gratis';email.textContent=accountEmail||'—';lead.textContent='3 Analysen pro Woche mit Gemini. Pro schaltet den Rest frei.';usage.textContent=usageLine(usageInfo);out.hidden=false;if(stripeReady)up.hidden=false;else soon.hidden=false;return}
+ planEl.textContent='Ohne Konto';email.textContent='Noch nicht angemeldet';lead.textContent='Mit einem E-Mail-Konto gibt es den Gratis-Tarif und Lumen Pro.';usage.textContent=usageInfo?usageLine(usageInfo):'';inn.hidden=false;if(!stripeReady)soon.hidden=false}
+function openPricing(){const box=document.getElementById('buyBox'),soon=document.getElementById('proSoon'),note=document.getElementById('priceNote'),lead=document.getElementById('priceLead');
+ const month=document.getElementById('buyMonth'),year=document.getElementById('buyYear');
+ if(plan==='pro'||plan==='tester'){box.hidden=true;soon.hidden=true;lead.textContent=plan==='tester'?'Dein Einladungscode enthält bereits die Pro-Funktionen.':'Du nutzt Lumen Pro.';note.textContent=plan==='pro'&&stripeReady?'Änderungen am Abo laufen über „Abo verwalten“.':'';}
+ else if(plan!=='free'){box.hidden=true;soon.hidden=!stripeReady;lead.textContent='Melde dich mit deiner E-Mail an, um Gratis zu nutzen oder Pro zu kaufen.';note.textContent='';}
+ else if(!stripeReady){box.hidden=true;soon.hidden=false;lead.textContent='Pro schaltet alle Modelle, Texte und den vollen Fotokurs frei.';note.textContent='';}
+ else{box.hidden=false;soon.hidden=true;lead.textContent='Pro schaltet alle Modelle, Texte und den vollen Fotokurs frei.';note.textContent=accountEmail?('Angemeldet als '+accountEmail):'';if(month)month.hidden=!priceMonth;if(year)year.hidden=!priceYear}
+ document.getElementById('priceModal').hidden=false}
+function closePricing(){document.getElementById('priceModal').hidden=true}
+async function startCheckout(which){const box=document.getElementById('faggOk');if(!box||!box.checked){toast('Bitte AGB und sofortigen Beginn bestätigen',2800);return}
+ const btn=document.getElementById(which==='year'?'buyYear':'buyMonth');if(btn)btn.disabled=true;
+ try{const r=await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:which,consent:true})});const j=await r.json();
+  if(r.status===401){closePricing();go('login');toast('Bitte mit E-Mail anmelden');return}
+  if(!r.ok)throw new Error(j.error||'Kauf nicht möglich');
+  if(j.url)location.href=j.url}catch(e){toast(e.message,3200)}finally{if(btn)btn.disabled=false}}
+async function openPortal(){try{const r=await fetch('/api/portal',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const j=await r.json();if(!r.ok||!j.url)throw new Error(j.error||'Abo-Verwaltung nicht verfügbar');location.href=j.url}catch(e){toast(e.message,3200)}}
+async function sendMagic(ev){ev.preventDefault();const btn=document.getElementById('magicBtn'),msg=document.getElementById('magicMsg');btn.disabled=true;btn.textContent='Sende …';msg.className='';msg.textContent='';
+ try{const r=await fetch('/api/magic',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value})});const j=await r.json();
+  if(!r.ok)throw new Error(j.error||'Versand fehlgeschlagen');
+  msg.textContent=j.dev?'Testmodus: Der Link steht in der Server-Konsole, es wurde keine E-Mail verschickt.':'Schau in dein Postfach. Der Link gilt 15 Minuten und kann einmal verwendet werden.'}
+ catch(e){msg.className='err';msg.textContent=e.message}finally{btn.disabled=false;btn.textContent='Link senden'}}
+function consumeQuery(){const q=new URLSearchParams(location.search);if(!q.toString())return;
+ if(q.get('angemeldet'))toast('Angemeldet');
+ if(q.get('abo')==='ok')toast('Zahlung erhalten. Pro erscheint, sobald Stripe es bestätigt.',3600);
+ if(q.get('abo')==='abbruch')toast('Kauf abgebrochen');
+ if(q.get('abo')==='portal')toast('Willkommen zurück');
+ history.replaceState({},'','/')}
 async function initServer(){
  if(!location.protocol.startsWith('http')){srvEl.querySelector('span').textContent='Offline geöffnet – Beispieldaten';return}
- try{const me=await (await fetch('/api/me')).json();authRequired=me.authRequired;document.querySelectorAll('.logoutL').forEach(b=>b.style.display=me.authRequired&&me.auth?'':'none');
-  if(me.authRequired&&!me.auth){go('login');return}
+ try{const me=await (await fetch('/api/me')).json();applyMe(me);
+  if(me.authRequired&&!me.auth){go('login');consumeQuery();return}
   const r=await fetch('/api/status');if(r.status===401){go('login');return}const j=await r.json();
-  serverOk=!!j.ok;isMock=!!j.mock;if(j.models)MODELS_IDS=j.models;srvEl.classList.toggle('on',serverOk);
-  srvEl.querySelector('span').textContent=serverOk?'Echte KI bereit':'Server ohne API-Schlüssel – Beispieldaten';showUsage(j.usage)
+  serverOk=!!j.ok;isMock=!!j.mock;if(j.models)MODELS_IDS=j.models;if(j.catalog)CATALOG=j.catalog;if(j.freeLessons)freeLessons=j.freeLessons;
+  srvEl.classList.toggle('on',serverOk);
+  srvEl.querySelector('span').textContent=serverOk?'Echte KI bereit':'Server ohne API-Schlüssel – Beispieldaten';showUsage(j.usage||me.usage);renderKonto();consumeQuery()
  }catch(e){srvEl.querySelector('span').textContent='Kein Server – Beispieldaten'}}
 async function doLogin(ev){ev.preventDefault();const btn=document.getElementById('loginBtn'),er=document.getElementById('loginErr');btn.disabled=true;btn.textContent='Prüfe …';er.textContent='';
  try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:document.getElementById('code').value})});const j=await r.json();
   if(!r.ok)throw new Error(j.error||'Anmeldung fehlgeschlagen');document.getElementById('code').value='';await initServer();go('start');toast('Willkommen bei Lumen')}
- catch(e){er.textContent=e.message}finally{btn.disabled=false;btn.textContent='Anmelden'}}
-async function doLogout(){await fetch('/api/logout',{method:'POST'}).catch(()=>{});serverOk=false;go('login')}
+ catch(e){er.textContent=e.message}finally{btn.disabled=false;btn.textContent='Code einlösen'}}
+async function doLogout(){await fetch('/api/logout',{method:'POST'}).catch(()=>{});texts=null;accountEmail='';serverOk=false;await initServer();if(authRequired)go('login');else{go('start');toast('Abgemeldet')}}
 let isMock=false,MODELS_IDS=[{label:'GPT'},{label:'Gemini'},{label:'Claude'}];
 function useDemo(reason,err){AI_EDIT=null;editSrc=null;document.getElementById('errBox').innerHTML=err?`<div class="card" style="border-color:#4a2c26;background:#1c1412;margin-bottom:16px"><div style="font-weight:600;font-size:14px;color:var(--bad)">KI-Analyse fehlgeschlagen</div><p class="sub" style="margin-top:4px;font-size:13px">${esc(err)} – unten siehst du deshalb Beispieldaten, nicht die Bewertung deines Fotos.</p></div>`:'';mode='demo';real=null;tips=[];MODELS=DEMO_MODELS.map(m=>m.slice());CAT.forEach((c,i)=>{c.s=DEMO[i].s.slice();c.why=DEMO[i].why});
 document.getElementById('otitle').textContent='Stimmungsvoll, mit Potenzial';document.getElementById('osub').textContent='Durchschnitt aus 3 Modellen';
@@ -421,31 +553,37 @@ function showLoad(on){const ab=document.getElementById('aBadge');ab.style.displa
 async function startAnalyse(){
  if(!serverOk||!userImg){useDemo(serverOk?'kein eigenes Foto gewählt':'');go('analyse');if(serverOk&&!userImg)toast('Tipp: Eigenes Foto wählen für echte KI');return}
  go('analyse');showLoad(true);
+ const lt=document.getElementById('loadTitle'),ls=document.getElementById('loadSub');
+ if(lt)lt.textContent=MODELS_IDS.length<2?'Gemini sieht sich dein Foto an':'Drei Modelle sehen sich dein Foto an';
+ if(ls)ls.textContent=MODELS_IDS.length<2?'Das dauert meist ein paar Sekunden.':'Das dauert meist 10–30 Sekunden.';
  document.getElementById('mstats').innerHTML=MODELS_IDS.map(m=>`<div class="mstat" id="ms-${m.label}"><span class="spin"></span><span><b style="font-weight:600">${m.label}</b> analysiert …</span><small>${esc(m.id||'')}</small></div>`).join('');
  const goal=document.querySelector('#goal .on').textContent;
  try{const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),90000);
   const r=await fetch('/api/analyse',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:userImg,goal}),signal:ctrl.signal});clearTimeout(t);
   const j=await r.json();
   if(r.status===401){showLoad(false);go('login');toast('Bitte erneut anmelden');return}
+  if(j.upgrade){showLoad(false);go('upload');if(j.usage)showUsage(j.usage);openPricing();toast(j.error||'Pro freischalten',3400);return}
   if(r.status===429||r.status===413){showLoad(false);go('upload');srvEl.querySelector('span').textContent=j.error;srvEl.classList.remove('on');srvEl.classList.add('bad');toast(j.limit==='budget'?'Tagesbudget erreicht':'Limit erreicht');return}
   if(j.usage)showUsage(j.usage);
   if(!j.results||!j.results.some(x=>x.ok))throw new Error((j.results&&j.results[0]&&j.results[0].error)||j.error||'Keine Antwort');
   applyReal(j);
  }catch(e){showLoad(false);useDemo('KI-Fehler',friendly(e.message));toast('KI nicht erreichbar – zeige Beispieldaten');console.warn(e);go('analyse')}
 }
+function padFree(R){if(plan!=='free')return R;const labels=(CATALOG.length?CATALOG:[{label:'GPT'},{label:'Gemini'},{label:'Claude'}]).map(m=>m.label);return labels.map(label=>R.find(x=>x.label===label)||{label:label,locked:true,ok:false})}
 function applyReal(j){
  mode='real';real=j;texts=null;AI_EDIT=j.edit||null;editSrc=null;const R=j.results;document.getElementById('errBox').innerHTML='';
  R.forEach(x=>{const el=document.getElementById('ms-'+x.label);if(el)el.querySelector('.spin').outerHTML=x.ok?'<svg class="i okc" style="width:18px;height:18px"><use href="#i-check"/></svg>':'<span class="erc">✕</span>'});
- MODELS=R.map(x=>[x.label,COLORS[x.label]||'#aaa',x.ok?(x.data.kommentar||x.data.gesamt.titel):'Nicht verfügbar: '+friendly(x.error),x.model.split('/')[1],!x.ok]);
- CAT.forEach(c=>{c.s=R.map(x=>x.ok?x.data.kategorien[KEYMAP[c.id]].punkte:null);c.whys=R.filter(x=>x.ok&&x.data.kategorien[c.id].begruendung).map(x=>[x.label,x.data.kategorien[c.id].begruendung])});
+ const shown=padFree(R);
+ MODELS=shown.map(x=>x.locked?[x.label,COLORS[x.label]||'#aaa','','',false,true]:[x.label,COLORS[x.label]||'#aaa',x.ok?(x.data.kommentar||x.data.gesamt.titel):'Nicht verfügbar: '+friendly(x.error),(x.model||'').split('/').pop(),!x.ok,false]);
+ CAT.forEach(c=>{c.s=shown.map(x=>(!x.locked&&x.ok)?x.data.kategorien[KEYMAP[c.id]].punkte:null);c.whys=shown.filter(x=>!x.locked&&x.ok&&x.data.kategorien[c.id]&&x.data.kategorien[c.id].begruendung).map(x=>[x.label,x.data.kategorien[c.id].begruendung])});
  const okR=R.filter(x=>x.ok);
  tips=[];okR.forEach(x=>x.data.tipps.forEach(t=>{if(tips.length<4&&t)tips.push(t)}));tips=tips.slice(0,3);
  document.getElementById('otitle').textContent=okR[0].data.gesamt.titel||'Analyse fertig';
- document.getElementById('osub').textContent=`Durchschnitt aus ${okR.length} von ${R.length} Modellen`+(okR.length<R.length?' · 1 Modell ausgefallen':'');
+ document.getElementById('osub').textContent=plan==='free'?'Gemini · Gratis, ein Modell':(`Durchschnitt aus ${okR.length} von ${R.length} Modellen`+(okR.length<R.length?' · 1 Modell ausgefallen':''));
  renderAnalyse();setTimeout(()=>{showLoad(false);go('analyse')},600)}
 async function loadTexts(){
  const ids=['deT','deH','enT','enH'];ids.forEach(i=>{const e=document.getElementById(i);e.dataset.old=e.innerHTML;e.innerHTML='<span class="sk" style="display:block;height:14px;margin:6px 0"></span><span class="sk" style="display:block;height:14px;width:70%"></span>'});
- try{const r=await fetch('/api/texte',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:userImg,goal:document.querySelector('#goal .on').textContent})});const j=await r.json();if(r.status===401){go('login');return}if(!r.ok||!j.de||!j.de.text)throw new Error(j.error||'Fehler');
+ try{const r=await fetch('/api/texte',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:userImg,goal:document.querySelector('#goal .on').textContent})});const j=await r.json();if(r.status===401){go('login');return}if(j.upgrade||r.status===403){ids.forEach(i=>{const el=document.getElementById(i);el.innerHTML=el.dataset.old});openPricing();toast(j.error||'Teil von Pro',2800);return}if(!r.ok||!j.de||!j.de.text)throw new Error(j.error||'Fehler');
   texts=j;document.getElementById('deT').textContent=j.de.text;document.getElementById('deH').textContent=j.de.hashtags.join(' ');document.getElementById('enT').textContent=j.en.text;document.getElementById('enH').textContent=j.en.hashtags.join(' ');document.getElementById('sBadge').style.display=isMock?'':'none';syncShareExtras()}
  catch(e){ids.forEach(i=>{const el=document.getElementById(i);el.innerHTML=el.dataset.old});document.getElementById('sBadge').style.display='';document.getElementById('sBadge').textContent='Beispieldaten · KI-Fehler';toast('Texte nicht verfügbar – Beispiel')}}
 

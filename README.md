@@ -61,6 +61,11 @@ Am Handy im selben WLAN: `http://<IP-des-Rechners>:8787`.
 | `MOCK=1` | – | **Testmodus ohne echte KI** (synthetische, klar markierte Antworten, keine Kosten) |
 | `MOCK_FAIL=claude` | – | simuliert im Testmodus den Ausfall eines Modells |
 | `KEEP_AWAKE` | an, sobald `RENDER_EXTERNAL_URL` gesetzt ist | `0` schaltet das Wachhalten auf Render aus (siehe unten) |
+| `MOCK_DELAY_MS` | Zufall 1,5–4 s | Wartezeit im Testmodus, nur 0–5000 |
+| `RESEND_API_KEY` / `MAIL_FROM` | – | Magic-Link per Resend |
+| `STRIPE_SECRET_KEY` | – | Stripe-API |
+| `STRIPE_WEBHOOK_SECRET` | – | Signatur von `/stripe/webhook` |
+| `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY` | – | Price-IDs für 4,99 €/Monat und 39 €/Jahr |
 
 ## Kosten (Schätzung)
 Preise laut OpenRouter-Modellliste am 15.10.2026, pro 1 Mio. Tokens Eingabe/Ausgabe:
@@ -76,7 +81,8 @@ Der Server schreibt die tatsächlichen Kosten (`usage.cost` von OpenRouter) in d
 
 ## Sicherheit
 - Den Schlüssel nie in `index.html`, in ein Git-Repository oder in Screenshots schreiben.
-- Der Server ist für lokale Tests gedacht und hat kein Login und kein Rate-Limit. So **nicht öffentlich ins Internet stellen**.
+- Geheimnisse (OpenRouter, Resend, Stripe, Webhook-Secret, Session-Secret) werden nicht geloggt. Ein Anmeldelink erscheint nur in der Konsole, wenn `RESEND_API_KEY` fehlt **und** `NODE_ENV` nicht `production` ist.
+- Öffentlich nur mit Zugang: Einladungscodes und/oder E-Mail-Konto, dazu Tagesbudget.
 
 ## Testbild
 `testdaten/hallstatt.jpg`: Thisisbossi, Wikimedia Commons, CC BY-SA 3.0 (siehe `testdaten/QUELLE.txt`).
@@ -89,7 +95,7 @@ Der Server schreibt die tatsächlichen Kosten (`usage.cost` von OpenRouter) in d
 ## Projektstruktur
 ```
 server.js              Server: App ausliefern, Login, Limits, KI-Anfragen
-public/                index.html (App), datenschutz.html, impressum.html, Manifest, Icons
+public/                index.html (App), datenschutz.html, impressum.html, agb.html, widerruf.html, Manifest, Icons
 package.json           Start mit "npm start"
 render.yaml            Blueprint für Render.com (Free-Plan, Region Frankfurt)
 Dockerfile             Alternative für Railway, Fly.io oder einen eigenen Server
@@ -115,6 +121,44 @@ testdaten/             Testfotos (werden nicht ins Docker-Image kopiert)
 - ⚠️ Zähler und Budget liegen im **Arbeitsspeicher**. Bei einem Neustart werden sie zurückgesetzt, auch wenn ein Free-Dienst einschläft und wieder aufwacht.
   - **Zusätzlich im OpenRouter-Konto ein Ausgabenlimit für den Schlüssel setzen.** Das ist die harte Grenze.
 
+## Konten, Gratis und Pro
+
+Neben den Einladungscodes gibt es ein Konto per E-Mail (kein Passwort).
+
+- Der Nutzer trägt die Adresse ein. Der Server schickt einen signierten Link (15 Minuten, einmal nutzbar, soweit der Prozess nicht neu startet).
+- Der Link setzt das Cookie `lumen_s` mit der E-Mail, 30 Tage, HttpOnly.
+- Versand über die Resend-HTTP-API (`RESEND_API_KEY`, `MAIL_FROM`). Fehlt der Schlüssel, schreibt der Server eine Warnung und läuft weiter. Nur außerhalb von `NODE_ENV=production` steht der Link dann in der Konsole.
+- Anfragen für Links sind begrenzt: 8 pro IP und 3 pro E-Mail-Adresse in 15 Minuten.
+
+| Tarif | Analysen | Modelle | Texte | Fotokurs |
+|---|---|---|---|---|
+| Gratis | 3 pro rollierende Woche | nur Gemini (`google/gemini-3.8-flash`) | nein | die ersten zwei Lektionen, der Rest mit Pro-Hinweis |
+| Pro | 15 pro Tag | GPT, Gemini, Claude | ja | alle sechs |
+| Einladungscode | wie bisher 20/Code und 30/IP pro Tag | alle drei | ja | alle sechs |
+
+Pro ist ein Stripe-Abo mit Status `active` oder `trialing` für die E-Mail des Kontos. Stripe ist die Quelle, der Server hält das Ergebnis wenige Minuten im Cache. Der Webhook `/stripe/webhook` leert bzw. setzt diesen Cache bei `checkout.session.completed`, `customer.subscription.updated` und `customer.subscription.deleted`. Die Signatur (`Stripe-Signature`) wird mit HMAC-SHA256 über den unveränderten Body geprüft.
+
+Fehlen `STRIPE_SECRET_KEY` oder beide Preis-IDs, startet der Server trotzdem. Statt der Kauf-Buttons steht **Pro bald verfügbar**.
+
+Vor dem Checkout muss die Checkbox gesetzt sein: AGB plus ausdrückliche Zustimmung, dass der Dienst sofort beginnt und das Widerrufsrecht erlischt (FAGG § 18). „Abo verwalten“ öffnet das Stripe-Kundenportal.
+
+Das globale Tagesbudget (`DAILY_BUDGET_USD`) gilt für alle Tarife.
+
+## Was Robert in Stripe, Resend und Render einträgt
+
+1. **Resend** (https://resend.com): Domain verifizieren, API-Schlüssel erzeugen. `MAIL_FROM` muss eine Adresse dieser Domain sein, z. B. `Lumen <login@deine-domain.at>`.
+2. **Stripe-Produkt** „Lumen Pro“ mit zwei Preisen, Währung EUR, wiederkehrend:
+   - Monat: **4,99 €** → Price-ID nach `STRIPE_PRICE_MONTHLY`
+   - Jahr: **39 €** → Price-ID nach `STRIPE_PRICE_YEARLY`
+3. **Zahlungsmethoden** im Stripe-Dashboard aktivieren (Karten und was sonst automatisch angeboten werden soll). Der Checkout setzt keine feste Liste, damit Stripe die automatischen Methoden aus dem Dashboard nimmt. Aktionscodes sind erlaubt, die Sprache ist Deutsch.
+4. **Webhook** im Stripe-Dashboard anlegen:
+   - URL: `https://lumen-67oi.onrender.com/stripe/webhook`
+   - Ereignisse: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+   - Signing-Secret nach `STRIPE_WEBHOOK_SECRET`
+5. **Kundenportal** im Stripe-Dashboard aktivieren (Kündigen, Zahlungsmittel, Rechnungen) und die Rückkehr-URL auf `https://lumen-67oi.onrender.com` setzen.
+6. In **Render** die neuen Variablen aus `render.yaml` eintragen (`sync: false`, Render fragt sie ab). Bestehende Variablen (`OPENROUTER_API_KEY`, `ACCESS_CODES`, `SESSION_SECRET`, Limits, Budget) bleiben.
+7. **AGB und Widerruf** (`public/agb.html`, `public/widerruf.html`) vor dem Verkauf juristisch prüfen. Offene Stellen sind im HTML als Kommentar `TODO RECHTLICHE PRÜFUNG` markiert und auf der Seite nicht sichtbar. Das betrifft auch Umsatzsteuer (Kleinunternehmer oder Bruttopreis).
+
 ## Produktion
 - `PORT` kommt aus der Umgebung (Render und Railway setzen ihn automatisch).
 - Health-Check: `GET /healthz`.
@@ -130,7 +174,7 @@ testdaten/             Testfotos (werden nicht ins Docker-Image kopiert)
    - `ACCESS_CODES`: Einladungscodes
    - `SESSION_SECRET` wird automatisch erzeugt.
 4. Nach dem Deploy ist die App unter `https://lumen-xxxx.onrender.com` erreichbar.
-5. Vorher Impressum und Datenschutz ausfüllen: `public/impressum.html` und `public/datenschutz.html`, alle `[markierten]` Stellen.
+5. Impressum, Datenschutz, AGB und Widerruf prüfen: `public/impressum.html`, `public/datenschutz.html`, `public/agb.html`, `public/widerruf.html`. Offene Rechtsfragen stehen als HTML-Kommentar `TODO RECHTLICHE PRÜFUNG`.
 
 Einschränkungen des Free-Plans (Render-Doku, Stand 10/2026):
 - Der Dienst schläft nach **15 Minuten ohne Anfragen** ein. Der erste Aufruf danach dauert **etwa 1 Minute**.

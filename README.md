@@ -66,6 +66,7 @@ Am Handy im selben WLAN: `http://<IP-des-Rechners>:8787`.
 | `STRIPE_SECRET_KEY` | – | Stripe-API |
 | `STRIPE_WEBHOOK_SECRET` | – | Signatur von `/stripe/webhook` |
 | `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY` | – | Price-IDs für 4,99 €/Monat und 39 €/Jahr |
+| `STRIPE_LUMEN_EXTRA_PRICE_IDS` | – | Weitere Lumen-Price-IDs, Komma-getrennt. Nur diese und die beiden Preise oben zählen als Pro |
 
 ## Kosten (Schätzung)
 Preise laut OpenRouter-Modellliste am 15.10.2026, pro 1 Mio. Tokens Eingabe/Ausgabe:
@@ -140,7 +141,7 @@ Neben den Einladungscodes gibt es ein Konto per E-Mail (kein Passwort).
 | Pro | 15 pro Tag | GPT, Gemini, Claude | ja | alle sechs |
 | Einladungscode | wie bisher 20/Code und 30/IP pro Tag | alle drei | ja | alle sechs |
 
-Pro ist ein Stripe-Abo mit Status `active` oder `trialing` für die E-Mail des Kontos. Stripe ist die Quelle, der Server hält das Ergebnis wenige Minuten im Cache. Der Webhook `/stripe/webhook` leert bzw. setzt diesen Cache bei `checkout.session.completed`, `customer.subscription.updated` und `customer.subscription.deleted`. Die Signatur (`Stripe-Signature`) wird mit HMAC-SHA256 über den unveränderten Body geprüft.
+Pro ist ein Stripe-Abo mit Status `active` oder `trialing`, das einen Lumen-Preis enthält: `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` oder eine ID aus `STRIPE_LUMEN_EXTRA_PRICE_IDS`. Andere Produkte auf demselben Stripe-Konto, zum Beispiel der Preisrechner mit eigenen Einmal- und Abo-Preisen, zählen nicht. Stripe ist die Quelle, der Server hält das Ergebnis wenige Minuten im Cache. Der Webhook `/stripe/webhook` setzt diesen Cache nur, wenn Checkout oder Abo einen dieser Preise enthält. Sitzungen und Abos anderer Preise lässt er liegen. Die Signatur (`Stripe-Signature`) wird mit HMAC-SHA256 über den unveränderten Body geprüft.
 
 Fehlen `STRIPE_SECRET_KEY` oder beide Preis-IDs, startet der Server trotzdem. Statt der Kauf-Buttons steht **Pro bald verfügbar**.
 
@@ -154,6 +155,7 @@ Das globale Tagesbudget (`DAILY_BUDGET_USD`) gilt für alle Tarife.
 2. **Stripe-Produkt** „Lumen Pro“ mit zwei Preisen, Währung EUR, wiederkehrend:
    - Monat: **4,99 €** → Price-ID nach `STRIPE_PRICE_MONTHLY`
    - Jahr: **39 €** → Price-ID nach `STRIPE_PRICE_YEARLY`
+   - Weitere Lumen-Preise, falls nötig, kommagetrennt nach `STRIPE_LUMEN_EXTRA_PRICE_IDS`. Preise des Preisrechners gehören dort nicht hinein. Dasselbe Stripe-Konto darf beide Produkte führen. Nur ein Abo mit einem Lumen-Preis schaltet Pro frei.
 3. **Zahlungsmethoden** im Stripe-Dashboard aktivieren (Karten und was sonst automatisch angeboten werden soll). Der Checkout setzt keine feste Liste, damit Stripe die automatischen Methoden aus dem Dashboard nimmt. Aktionscodes sind erlaubt. Die Checkout-Sprache folgt der gewählten App-Sprache (`de`, `en`, `it`, `fr` oder `es`).
 4. **Webhook** im Stripe-Dashboard anlegen:
    - URL: `https://lumen-67oi.onrender.com/stripe/webhook`

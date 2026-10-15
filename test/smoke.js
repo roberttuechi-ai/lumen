@@ -6,6 +6,9 @@ const path = require('path');
 
 process.env.SESSION_SECRET = 'unit-test-secret';
 process.env.ACCESS_CODES = 'UNIT-CODE';
+process.env.STRIPE_PRICE_MONTHLY = 'price_lumen_month';
+process.env.STRIPE_PRICE_YEARLY = 'price_lumen_year';
+process.env.STRIPE_LUMEN_EXTRA_PRICE_IDS = 'price_extra, price_spaced';
 const app = require('../server.js');
 
 const root = path.join(__dirname, '..');
@@ -48,6 +51,39 @@ test('Stripe-Signatur akzeptiert den Rohbody und lehnt Änderungen ab', () => {
   const oldSig = crypto.createHmac('sha256', secret).update(old + '.').update(payload).digest('hex');
   assert.equal(app.verifyStripeSignature(payload, `t=${old},v1=${oldSig}`, secret), false);
   assert.equal(app.verifyStripeSignature(payload, header, 'whsec_other'), false);
+});
+
+test('Nur Lumen-Preise zählen als Pro', async () => {
+  app.resetEphemeral();
+  const sub = (price, status = 'active') => ({ status, items: { data: [{ price: { id: price } }] } });
+  assert.equal(app.grantsLumenPro(sub('price_lumen_month')), true);
+  assert.equal(app.grantsLumenPro(sub('price_lumen_year', 'trialing')), true);
+  assert.equal(app.grantsLumenPro(sub('price_extra')), true);
+  assert.equal(app.grantsLumenPro(sub('price_spaced')), true);
+  assert.equal(app.grantsLumenPro(sub('price_calculator')), false);
+  assert.equal(app.grantsLumenPro(sub('price_lumen_month', 'canceled')), false);
+  assert.equal(app.grantsLumenPro({ status: 'active', items: { data: [{ price: 'price_lumen_month' }] } }), true);
+  assert.equal(app.grantsLumenPro({ status: 'active', items: { data: [{ plan: { id: 'price_lumen_year' } }] } }), true);
+  assert.equal(app.grantsLumenPro({ status: 'active', items: { data: [{ price: { id: 'price_calculator' } }, { price: { id: 'price_lumen_year' } }] } }), true);
+  assert.equal(app.LUMEN_PRICE_IDS.has('price_lumen_month'), true);
+  assert.equal(app.LUMEN_PRICE_IDS.has('price_calculator'), false);
+
+  const otherCheckout = { type: 'checkout.session.completed', data: { object: { mode: 'subscription', status: 'complete', customer: 'cus_x', customer_email: 'ada@example.com', line_items: { data: [{ price: { id: 'price_calculator' } }] } } } };
+  await app.handleStripeEvent(otherCheckout);
+  assert.equal((await app.lookupPro('ada@example.com')).pro, false);
+
+  await app.handleStripeEvent({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', status: 'complete', customer: 'cus_x', customer_email: 'ada@example.com', metadata: { lumen_price: 'price_lumen_month' } } } });
+  assert.equal((await app.lookupPro('ada@example.com')).pro, true);
+
+  await app.handleStripeEvent({ type: 'customer.subscription.updated', data: { object: { status: 'canceled', customer: 'cus_x', items: { data: [{ price: { id: 'price_calculator_sub' } }] } } } });
+  assert.equal((await app.lookupPro('ada@example.com')).pro, true);
+
+  await app.handleStripeEvent({ type: 'customer.subscription.deleted', data: { object: { status: 'canceled', customer: 'cus_x', items: { data: [{ price: { id: 'price_lumen_month' } }] } } } });
+  assert.equal((await app.lookupPro('ada@example.com')).pro, false);
+
+  await app.handleStripeEvent({ type: 'customer.subscription.updated', data: { object: { status: 'active', customer: 'cus_x', items: { data: [{ price: { id: 'price_extra' } }] } } } });
+  assert.equal((await app.lookupPro('ada@example.com')).pro, true);
+  app.resetEphemeral();
 });
 
 test('Gratis, Pro und Einladungscode haben die vorgesehenen Limits', () => {
@@ -175,6 +211,9 @@ test('Magic-Link, Gratis-Limit, Checkout-Zustimmung und Webhook', async () => {
     ACCESS_CODES: 'TEST-CODE',
     NODE_ENV: 'development',
     STRIPE_WEBHOOK_SECRET: secret,
+    STRIPE_PRICE_MONTHLY: 'price_lumen_month',
+    STRIPE_PRICE_YEARLY: 'price_lumen_year',
+    STRIPE_LUMEN_EXTRA_PRICE_IDS: 'price_extra',
   });
   const base = 'http://127.0.0.1:' + srv.port;
   try {
@@ -272,7 +311,21 @@ test('Magic-Link, Gratis-Limit, Checkout-Zustimmung und Webhook', async () => {
     assert.equal(wide.status, 200);
     assert.equal(wideJson.results.length, 3);
 
-    const body = JSON.stringify({ id: 'evt_smoke', type: 'checkout.session.completed', data: { object: { mode: 'subscription', status: 'complete', customer: 'cus_smoke', customer_email: 'ada@example.com' } } });
+    const signBody = (raw) => {
+      const ts = Math.floor(Date.now() / 1000);
+      const sig = crypto.createHmac('sha256', secret).update(ts + '.' + raw).digest('hex');
+      return { raw, headers: { 'Content-Type': 'application/json', 'Stripe-Signature': `t=${ts},v1=${sig}` } };
+    };
+    const postEvent = async (event) => {
+      const signed = signBody(JSON.stringify(event));
+      const res = await fetch(base + '/stripe/webhook', { method: 'POST', headers: signed.headers, body: signed.raw });
+      assert.equal(res.status, 200);
+    };
+    const other = { id: 'evt_other', type: 'checkout.session.completed', data: { object: { mode: 'payment', status: 'complete', customer: 'cus_smoke', customer_email: 'ada@example.com', line_items: { data: [{ price: { id: 'price_calculator' } }] } } } };
+    await postEvent(other);
+    const stillFree = await fetch(base + '/api/me', { headers: { cookie } }).then((r) => r.json());
+    assert.equal(stillFree.plan, 'free');
+    const body = JSON.stringify({ id: 'evt_smoke', type: 'checkout.session.completed', data: { object: { mode: 'subscription', status: 'complete', customer: 'cus_smoke', customer_email: 'ada@example.com', line_items: { data: [{ price: { id: 'price_lumen_month' } }] } } } });
     const ts = Math.floor(Date.now() / 1000);
     const sig = crypto.createHmac('sha256', secret).update(ts + '.' + body).digest('hex');
     const bad = await fetch(base + '/stripe/webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Stripe-Signature': `t=${ts},v1=00` }, body });
@@ -281,5 +334,8 @@ test('Magic-Link, Gratis-Limit, Checkout-Zustimmung und Webhook', async () => {
     assert.equal(ok.status, 200);
     const after = await fetch(base + '/api/me', { headers: { cookie } }).then((r) => r.json());
     assert.equal(after.plan, 'pro');
+    await postEvent({ id: 'evt_keep', type: 'customer.subscription.deleted', data: { object: { status: 'canceled', customer: 'cus_smoke', items: { data: [{ price: { id: 'price_calculator' } }] } } } });
+    const kept = await fetch(base + '/api/me', { headers: { cookie } }).then((r) => r.json());
+    assert.equal(kept.plan, 'pro');
   } finally { await stop(srv.child); }
 });

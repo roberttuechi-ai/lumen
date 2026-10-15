@@ -208,6 +208,10 @@ const STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', '');
 const STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', '');
 const STRIPE_PRICE_MONTHLY = env('STRIPE_PRICE_MONTHLY', '');
 const STRIPE_PRICE_YEARLY = env('STRIPE_PRICE_YEARLY', '');
+function splitPriceIds(raw) {
+  return String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+const LUMEN_PRICE_IDS = new Set(splitPriceIds([STRIPE_PRICE_MONTHLY, STRIPE_PRICE_YEARLY, env('STRIPE_LUMEN_EXTRA_PRICE_IDS', '')].filter(Boolean).join(',')));
 const PRO_CACHE_MS = 5 * 60 * 1000;
 const MAGIC_WINDOW_MS = 15 * 60 * 1000;
 const MAGIC_LIMIT_IP = 8;
@@ -411,13 +415,47 @@ function setProCache(email, pro, customerId) {
   const prev = proCache.get(email);
   proCache.set(email, { pro: !!pro, customerId: customerId || (prev && prev.customerId) || null, exp: Date.now() + PRO_CACHE_MS });
 }
+function pushPriceId(ids, price) {
+  if (!price) return;
+  const id = typeof price === 'string' ? price : price.id;
+  const clean = String(id || '').trim();
+  if (clean) ids.push(clean);
+}
+function collectPriceIds(obj) {
+  const ids = [];
+  if (!obj || typeof obj !== 'object') return ids;
+  if (obj.metadata) pushPriceId(ids, obj.metadata.lumen_price);
+  const items = obj.items && obj.items.data;
+  if (Array.isArray(items)) for (const item of items) { pushPriceId(ids, item.price); pushPriceId(ids, item.plan); }
+  const lines = obj.line_items && obj.line_items.data;
+  if (Array.isArray(lines)) for (const line of lines) pushPriceId(ids, line.price);
+  return ids;
+}
+function isLumenPrice(id) { return LUMEN_PRICE_IDS.has(id); }
+function grantsLumenPro(sub) {
+  return !!sub && (sub.status === 'active' || sub.status === 'trialing') && collectPriceIds(sub).some(isLumenPrice);
+}
+async function checkoutPriceIds(session) {
+  let ids = collectPriceIds(session);
+  if (session && session.subscription && typeof session.subscription === 'object') ids = ids.concat(collectPriceIds(session.subscription));
+  if (ids.some(isLumenPrice) || ids.length || !session || !STRIPE_SECRET_KEY) return ids;
+  const subId = typeof session.subscription === 'string' ? session.subscription : '';
+  if (!subId) return ids;
+  try {
+    const remote = await stripeGet('/v1/subscriptions/' + encodeURIComponent(subId));
+    return collectPriceIds(remote);
+  } catch (e) {
+    console.log('[stripe] Abo zum Checkout nicht gelesen: ' + safeErr(e));
+    return ids;
+  }
+}
 async function fetchPro(email) {
   const list = await stripeGet('/v1/customers?email=' + encodeURIComponent(email) + '&limit=5');
   let customerId = null, pro = false;
   for (const c of (list.data || []).slice(0, 5)) {
     if (!customerId) customerId = c.id;
     const subs = await stripeGet('/v1/subscriptions?customer=' + encodeURIComponent(c.id) + '&status=all&limit=20');
-    if ((subs.data || []).some(s => s.status === 'active' || s.status === 'trialing')) { pro = true; customerId = c.id; break; }
+    if ((subs.data || []).some(grantsLumenPro)) { pro = true; customerId = c.id; break; }
   }
   return { pro, customerId };
 }
@@ -456,12 +494,21 @@ async function handleStripeEvent(event) {
     const email = normEmail(obj.customer_email || (obj.customer_details && obj.customer_details.email));
     const customer = customerIdOf(obj);
     if (customer && email) emailByCustomer.set(customer, email);
+    const ids = await checkoutPriceIds(obj);
+    if (!ids.some(isLumenPrice)) {
+      console.log('[stripe] checkout.session.completed ignoriert (kein Lumen-Preis)' + (email ? ' ' + hash(email) : ''));
+      return;
+    }
     if (email && obj.mode === 'subscription' && obj.status === 'complete') setProCache(email, true, customer);
     else if (email) proCache.delete(email);
     console.log('[stripe] checkout.session.completed ' + (email ? hash(email) : 'ohne-mail'));
     return;
   }
   if (type === 'customer.subscription.updated' || type === 'customer.subscription.deleted') {
+    if (!collectPriceIds(obj).some(isLumenPrice)) {
+      console.log('[stripe] ' + type + ' ignoriert (kein Lumen-Preis)');
+      return;
+    }
     const customer = customerIdOf(obj);
     let email = (customer && emailByCustomer.get(customer)) || null;
     if (!email && customer && STRIPE_SECRET_KEY) {
@@ -648,8 +695,10 @@ const server = http.createServer(async (req, res) => {
         // payment_method_types absichtlich weglassen: Stripe zeigt die automatischen Zahlungsmethoden aus dem Dashboard.
         'metadata[consent_fagg18]': '1',
         'metadata[consent_at]': consentAt,
+        'metadata[lumen_price]': price,
         'subscription_data[metadata][consent_fagg18]': '1',
         'subscription_data[metadata][consent_at]': consentAt,
+        'subscription_data[metadata][lumen_price]': price,
       };
       if (sess.customerId) params.customer = sess.customerId;
       else params.customer_email = sess.email;
@@ -781,4 +830,5 @@ module.exports = {
   FREE_WEEKLY, PRO_DAILY, FREE_LESSONS,
   pickLang: i18n.pickLang, t: i18n.t, mailCopy: i18n.mailCopy, course: i18n.course,
   dictionaryKeys: i18n.dictionaryKeys, LANGS: i18n.LANGS, analysePrompt, textPrompt, goalKey,
+  grantsLumenPro, handleStripeEvent, lookupPro, LUMEN_PRICE_IDS,
 };

@@ -1,0 +1,7 @@
+screens
+testdaten
+*.log
+.env
+.env.*
+node_modules
+.git

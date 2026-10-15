@@ -1,0 +1,28 @@
+# Render Blueprint für Lumen (Testphase). Keine Geheimnisse in diese Datei schreiben!
+services:
+  - type: web
+    name: lumen
+    runtime: node
+    plan: free            # 0.1 CPU / 512 MB, schläft nach 15 Min. ohne Anfragen
+    region: frankfurt     # EU-Region
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: OPENROUTER_API_KEY
+        sync: false       # wird beim Anlegen im Render-Dashboard abgefragt
+      - key: ACCESS_CODES
+        sync: false       # z. B. "LUMEN-ANNA-7K2,LUMEN-MAX-9QX" (Komma-getrennt)
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DAILY_LIMIT_PER_CODE
+        value: "20"
+      - key: DAILY_LIMIT_PER_IP
+        value: "30"
+      - key: DAILY_BUDGET_USD
+        value: "1.00"
+      - key: TRUST_PROXY
+        value: "1"

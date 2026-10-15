@@ -281,20 +281,27 @@ function startKeepAwake() {
   const ms = Number.isFinite(raw) && raw >= 1000 && raw <= max ? raw : 10 * 60 * 1000;
   const lib = target.protocol === 'https:' ? https : http;
   const ping = () => {
+    let req;
     try {
-      const req = lib.request(target, { method: 'GET', timeout: 20000, headers: { Connection: 'close' } }, (r) => {
-        r.resume();
-        if (r.statusCode !== 200) console.log(`[keep-awake] HTTP ${r.statusCode}`);
+      req = lib.request(target, { method: 'GET', timeout: 20000, headers: { Connection: 'close' } }, (r) => {
+        try {
+          r.resume();
+          if (r.statusCode !== 200) console.log(`[keep-awake] HTTP ${r.statusCode}`);
+        } catch (e) { console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`); }
       });
-      req.on('timeout', () => req.destroy());
-      req.on('error', (e) => console.log(`[keep-awake] ${String(e.message || e).slice(0, 160)}`));
-      req.unref();
+      req.on('socket', (socket) => { try { socket.unref(); } catch {} }); // Request hält den Prozess beim Beenden nicht offen
+      req.on('timeout', () => { try { req.destroy(); } catch {} });
+      req.on('error', (e) => console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`));
       req.end();
-    } catch (e) { console.log(`[keep-awake] ${String(e.message || e).slice(0, 160)}`); }
+    } catch (e) {
+      console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`);
+      if (req) { req.on('error', () => {}); try { req.destroy(); } catch {} }
+    }
   };
   const timer = setInterval(ping, ms);
   timer.unref();
-  console.log(`[keep-awake] aktiv, alle ${Math.round(ms / 1000)} s → ${target.host}/healthz`);
+  const every = ms % 60000 === 0 ? `${ms / 60000} min` : `${ms} ms`;
+  console.log(`[keep-awake] aktiv, alle ${every} → ${target.host}/healthz`);
   return timer;
 }
 let keepAwakeTimer = null;

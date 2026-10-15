@@ -1,6 +1,7 @@
 // Lumen – kleiner Server für den Prototyp. Start: OPENROUTER_API_KEY=... node server.js
 // Der API-Schlüssel bleibt ausschließlich auf dem Server (Umgebungsvariable) und wird nie ausgegeben.
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path'), crypto = require('crypto');
+const i18n = require('./public/i18n.js');
 const PORT = process.env.PORT || 8787;
 const KEY = process.env.OPENROUTER_API_KEY;
 const MODELS = [
@@ -71,6 +72,33 @@ const TEXT_PROMPT = (goal) => `Schreibe passend zu diesem Foto Social-Media-Text
 Antworte AUSSCHLIESSLICH mit gültigem JSON (kein Markdown):
 {"de":{"text":"<Instagram-Bildunterschrift auf Deutsch, 1-3 Sätze, natürlich, kein Kitsch>","hashtags":["#...", "... 5-8 Stück"]},
 "en":{"text":"<dieselbe Idee auf Englisch>","hashtags":["#...", "... 5-8 Stück"]}}`;
+function goalKey(v) {
+  const s = String(v || '').toLowerCase();
+  if (['contest', 'wettbewerb', 'concorso', 'concours', 'concurso'].includes(s)) return 'contest';
+  if (['learn', 'lernen', 'imparare', 'apprendre', 'aprender'].includes(s)) return 'learn';
+  return 'instagram';
+}
+function langLine(lang) {
+  const code = i18n.baseLang(lang) || 'en';
+  return `OUTPUT_LANG=${code}\nSPRACHE: Alle Freitextfelder (titel, begruendung, tipps, kommentar, bearbeitung.begruendung) schreibst du auf ${i18n.outputName(code)} (${i18n.outputNameEn(code)}). Die JSON-Schlüssel bleiben exakt wie im Schema.\n`;
+}
+function analysePrompt(goal, lang) {
+  const code = i18n.baseLang(lang) || 'en';
+  return langLine(code) + ANALYSE_PROMPT(i18n.t(code, 'goal.' + goalKey(goal)));
+}
+function analysePromptV1(goal, lang) {
+  const code = i18n.baseLang(lang) || 'en';
+  return langLine(code) + ANALYSE_PROMPT_V1(i18n.t(code, 'goal.' + goalKey(goal)));
+}
+function textPrompt(goal, lang) {
+  const code = i18n.baseLang(lang) || 'en';
+  const g = i18n.t(code, 'goal.' + goalKey(goal));
+  return `LUMEN_CAPTION ${code}
+Schreibe eine Bildunterschrift für dieses Foto. Ziel/Plattform: ${g}.
+Schreibe den Text auf ${i18n.outputName(code)} (${i18n.outputNameEn(code)}).
+Antworte AUSSCHLIESSLICH mit gültigem JSON (kein Markdown):
+{"text":"<1-3 Sätze, natürlich, kein Kitsch>","hashtags":["ohneRautenzeichen","5-8 Stück"]}`;
+}
 
 function parseJSON(txt) {
   if (!txt) throw new Error('Leere Antwort');
@@ -118,10 +146,14 @@ async function mockModel(model, prompt) {
   const ms = Number.isFinite(wait) && wait >= 0 && wait <= 5000 ? wait : (1500 + Math.random() * 2500);
   await new Promise(r => setTimeout(r, ms));
   if (process.env.MOCK_FAIL && model.includes(process.env.MOCK_FAIL)) throw new Error('Testmodus: simulierter Ausfall');
-  if (prompt.startsWith('Schreibe')) return { content: JSON.stringify({ de: { text: '[TESTMODUS] Beispieltext ohne echte KI.', hashtags: ['testmodus', 'lumen'] }, en: { text: '[TEST MODE] Sample text, no real AI.', hashtags: ['testmode'] } }), usage: { cost: 0 } };
+  if (prompt.startsWith('LUMEN_CAPTION')) {
+    const code = (prompt.match(/^LUMEN_CAPTION\s+([a-z]{2})/) || [])[1] || 'en';
+    return { content: JSON.stringify(i18n.mockCaption(code)), usage: { cost: 0 } };
+  }
+  const outLang = (prompt.match(/OUTPUT_LANG=([a-z]{2})/) || [])[1] || 'en';
   const r = () => Math.round((5 + Math.random() * 4) * 2) / 2, k = {};
-  for (const c of CATS) k[c] = { punkte: r(), begruendung: `[TESTMODUS ${model}] Synthetische Begründung für ${c} – keine echte KI-Analyse.` };
-  return { content: '```json\n' + JSON.stringify({ gesamt: { punkte: null, titel: '[Testmodus] Synthetisch' }, kategorien: k, tipps: ['[Test] Tipp 1', '[Test] Tipp 2', '[Test] Tipp 3'], kommentar: `[TESTMODUS] Synthetische Antwort von ${model}.`, bearbeitung: { belichtung: 0.2, kontrast: 10, lichter: -30, tiefen: 20, weiss: 5, schwarz: -5, waerme: 8, saettigung: 0, dynamik: 15, schaerfe: 20, zuschnitt: { x: 0.05, y: 0.05, b: 0.9, h: 0.9 }, begruendung: '[TESTMODUS] synthetische Werte' } }) + '\n```', usage: { cost: 0 } };
+  for (const c of CATS) k[c] = { punkte: r(), begruendung: `[TEST ${outLang} ${model}] Synthetische Begründung für ${c} – keine echte KI-Analyse.` };
+  return { content: '```json\n' + JSON.stringify({ gesamt: { punkte: null, titel: i18n.t(outLang, 'demo.short') }, kategorien: k, tipps: ['[Test] 1', '[Test] 2', '[Test] 3'], kommentar: `[TEST ${outLang}] Synthetische Antwort von ${model}.`, bearbeitung: { belichtung: 0.2, kontrast: 10, lichter: -30, tiefen: 20, weiss: 5, schwarz: -5, waerme: 8, saettigung: 0, dynamik: 15, schaerfe: 20, zuschnitt: { x: 0.05, y: 0.05, b: 0.9, h: 0.9 }, begruendung: `[TEST ${outLang}] synthetische Werte` } }) + '\n```', usage: { cost: 0 } };
 }
 async function callModel(model, prompt, image, maxTokens = 4000) {
   if (MOCK) return mockModel(model, prompt);
@@ -234,6 +266,23 @@ function session(req) {
   return null;
 }
 function setCookie(req, res, val, maxAge) { res.setHeader('Set-Cookie', `lumen_s=${val}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`); }
+function reqLang(req) { return i18n.pickLang({ cookie: cookies(req).lumen_lang, accept: req.headers['accept-language'] }); }
+function tr(req, key, vars) { return i18n.t(reqLang(req), key, vars); }
+function deny(res, req, decision, extra) {
+  return send(res, decision.status, Object.assign({ error: i18n.t(reqLang(req), decision.errorKey, decision.vars), limit: decision.limit, upgrade: !!decision.upgrade }, extra || {}));
+}
+function publicModelErr(lang, e) {
+  const m = String((e && e.message) || '');
+  if (/Zeitüberschreitung|AbortError/i.test(m)) return i18n.t(lang, 'err.timeout');
+  if (/Leere Antwort/.test(m)) return i18n.t(lang, 'err.empty');
+  if (/gültiges JSON/.test(m)) return i18n.t(lang, 'err.json');
+  if (/Unvollständige/.test(m)) return i18n.t(lang, 'err.incomplete');
+  if (/abgeschnitten/.test(m)) return i18n.t(lang, 'err.cut');
+  if (/HTTP 401/.test(m)) return i18n.t(lang, 'err.http401');
+  if (/HTTP 402/.test(m)) return i18n.t(lang, 'err.http402');
+  if (/HTTP 429/.test(m)) return i18n.t(lang, 'err.http429');
+  return safeErr(e);
+}
 function safeEq(a, b) { const x = Buffer.from(hash(a)), y = Buffer.from(hash(b)); return crypto.timingSafeEqual(x, y) && a === b; }
 function safeErr(e) {
   return String((e && e.message) || e || '')
@@ -288,20 +337,17 @@ function usage(sess, ip) {
 // Reine Entscheidung, damit Gratis/Pro/Code ohne Netzwerk testbar sind.
 function decideAccess(o) {
   const proFeatures = o.kind !== 'account' || o.tier === 'pro';
-  if (o.isText && !proFeatures) return { allow: false, status: 403, error: 'Instagram-Texte sind Teil von Lumen Pro.', upgrade: true, limit: 'feature' };
+  if (o.isText && !proFeatures) return { allow: false, status: 403, errorKey: 'err.captions', upgrade: true, limit: 'feature' };
   const factor = o.isText ? o.textFactor : 1;
   if (!o.isText && o.kind === 'account' && o.tier === 'free') {
-    if (o.weekUsed >= o.freeWeekly) return { allow: false, status: 429, error: `Dein Gratis-Kontingent ist aufgebraucht (${o.freeWeekly} Analysen pro Woche). Mit Pro sind es ${o.proDaily} Analysen pro Tag.`, upgrade: true, limit: 'week' };
+    if (o.weekUsed >= o.freeWeekly) return { allow: false, status: 429, errorKey: 'err.week', vars: { free: o.freeWeekly, pro: o.proDaily }, upgrade: true, limit: 'week' };
   } else {
     const base = o.kind === 'account' ? o.proDaily : o.codeLimit;
     const limit = base * factor;
-    if (o.periodUsed >= limit) {
-      const what = o.isText ? 'Texte' : 'Analysen';
-      return { allow: false, status: 429, error: `Tageslimit erreicht (${limit} ${what} pro Tag). Morgen geht's weiter.`, limit: 'code', upgrade: false };
-    }
+    if (o.periodUsed >= limit) return { allow: false, status: 429, errorKey: o.isText ? 'err.dayText' : 'err.dayAnalyse', vars: { limit }, limit: 'code', upgrade: false };
   }
-  if (o.ipUsed >= o.ipLimit * factor) return { allow: false, status: 429, error: 'Tageslimit für diese Verbindung erreicht.', limit: 'ip' };
-  if (o.budgetSpent >= o.budgetMax) return { allow: false, status: 429, error: 'Das Tagesbudget der Testphase ist aufgebraucht. Bitte morgen erneut versuchen.', limit: 'budget' };
+  if (o.ipUsed >= o.ipLimit * factor) return { allow: false, status: 429, errorKey: 'err.ip', limit: 'ip' };
+  if (o.budgetSpent >= o.budgetMax) return { allow: false, status: 429, errorKey: 'err.budget', limit: 'budget' };
   return { allow: true };
 }
 function accessCtx(sess, ip, isText) {
@@ -439,7 +485,7 @@ function publicBase(req) {
   return (isHttps(req) ? 'https' : 'http') + '://' + safeHost;
 }
 function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-async function sendMagicMail(email, link) {
+async function sendMagicMail(email, link, lang) {
   if (!RESEND_API_KEY || !MAIL_FROM) {
     console.log('[mail] WARNUNG: ' + (!RESEND_API_KEY ? 'RESEND_API_KEY' : 'MAIL_FROM') + ' fehlt – keine E-Mail versendet');
     if (!PROD) console.log('[mail] Login-Link (nur Entwicklung): ' + link);
@@ -451,9 +497,9 @@ async function sendMagicMail(email, link) {
       method: 'POST', signal: ctrl.signal,
       headers: { Authorization: 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: MAIL_FROM, to: [email], subject: 'Dein Anmeldelink für Lumen',
-        text: `Hallo,\n\nüber diesen Link meldest du dich bei Lumen an (15 Minuten gültig, einmal nutzbar):\n${link}\n\nWenn du das nicht warst, ignoriere diese E-Mail.\n\nLumen · Picwish-Fotodesign`,
-        html: `<p>Hallo,</p><p>über diesen Link meldest du dich bei Lumen an. Er ist <b>15 Minuten</b> gültig und nur einmal nutzbar.</p><p><a href="${escHtml(link)}">Jetzt anmelden</a></p><p style="color:#666;font-size:13px">Wenn du das nicht warst, ignoriere diese E-Mail.</p><p style="color:#666;font-size:13px">Lumen · Picwish-Fotodesign</p>`,
+        from: MAIL_FROM, to: [email], subject: i18n.mailCopy(lang || 'en', link).subject,
+        text: i18n.mailCopy(lang || 'en', link).text,
+        html: i18n.mailCopy(lang || 'en', link).html,
       }),
     });
     const data = await r.json().catch(() => ({}));
@@ -497,6 +543,9 @@ const validImg = (s) => typeof s === 'string' && s.length < MAX_BODY && /^data:i
 const STATIC = { '/': ['index.html', 'text/html; charset=utf-8'], '/index.html': ['index.html', 'text/html; charset=utf-8'],
   '/datenschutz': ['datenschutz.html', 'text/html; charset=utf-8'], '/impressum': ['impressum.html', 'text/html; charset=utf-8'],
   '/agb': ['agb.html', 'text/html; charset=utf-8'], '/widerruf': ['widerruf.html', 'text/html; charset=utf-8'],
+  '/en/datenschutz': ['en/datenschutz.html', 'text/html; charset=utf-8'], '/en/impressum': ['en/impressum.html', 'text/html; charset=utf-8'],
+  '/en/agb': ['en/agb.html', 'text/html; charset=utf-8'], '/en/widerruf': ['en/widerruf.html', 'text/html; charset=utf-8'],
+  '/i18n.js': ['i18n.js', 'text/javascript; charset=utf-8'], '/course.js': ['course.js', 'text/javascript; charset=utf-8'],
   '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'], '/icon.svg': ['icon.svg', 'image/svg+xml'],
   '/favicon.ico': ['icon-192.png', 'image/png'], '/icon-192.png': ['icon-192.png', 'image/png'], '/icon-512.png': ['icon-512.png', 'image/png'],
   '/apple-touch-icon.png': ['icon-192.png', 'image/png'] };
@@ -508,8 +557,9 @@ function mePayload(sess, ip) {
     usage: sess ? usage(sess, ip) : null, features: sess ? featuresOf(sess) : null, freeLessons: FREE_LESSONS,
   };
 }
-function linkPage(title, text) {
-  return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(title)} – Lumen</title><style>body{font-family:Inter,-apple-system,sans-serif;background:#0d0d0e;color:#f1efe9;margin:0;padding:32px 20px}main{max-width:420px;margin:0 auto}a{color:#c9a97c}p{line-height:1.5;color:#d6d3cb}</style></head><body><main><p style="letter-spacing:.18em;font-size:12px;color:#c9a97c">LUMEN</p><h1>${escHtml(title)}</h1><p>${text}</p><p><a href="/">Zur Anmeldung</a></p></main></body></html>`;
+function linkPage(lang, title, text) {
+  const code = i18n.baseLang(lang) || 'en';
+  return `<!DOCTYPE html><html lang="${code}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(title)} – Lumen</title><style>body{font-family:Inter,-apple-system,sans-serif;background:#0d0d0e;color:#f1efe9;margin:0;padding:32px 20px}main{max-width:420px;margin:0 auto}a{color:#c9a97c}p{line-height:1.5;color:#d6d3cb}</style></head><body><main><p style="letter-spacing:.18em;font-size:12px;color:#c9a97c">LUMEN</p><h1>${escHtml(title)}</h1><p>${escHtml(text)}</p><p><a href="/">${escHtml(i18n.t(code, 'err.backLogin'))}</a></p></main></body></html>`;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -518,7 +568,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if ((req.method === 'GET' || req.method === 'HEAD') && STATIC[p]) {
       const [f, type] = STATIC[p];
-      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': type.startsWith('text/html') ? 'no-cache' : 'public, max-age=86400' });
+      const cache = (type.startsWith('text/html') || type.includes('javascript')) ? 'no-cache' : 'public, max-age=86400';
+      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cache });
       if (req.method === 'HEAD') return res.end();
       return fs.createReadStream(path.join(PUBLIC, f)).pipe(res);
     }
@@ -533,32 +584,34 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && p === '/api/login') {
       const f = loginFails.get(ip) || { n: 0, t: Date.now() }; if (Date.now() - f.t > 15 * 60e3) { f.n = 0; f.t = Date.now(); }
-      if (f.n >= 10) return send(res, 429, { error: 'Zu viele Fehlversuche – bitte in 15 Minuten erneut versuchen' });
+      if (f.n >= 10) return send(res, 429, { error: tr(req, 'err.tooMany') });
       const b = await readBody(req, 4096); const code = String(b.code || '').trim();
       const hit = ACCESS_CODES.find(c => code && safeEq(c, code));
-      if (!hit) { f.n++; loginFails.set(ip, f); console.log(`[login] Fehlversuch (${ip})`); return send(res, 401, { error: 'Code ungültig' }); }
+      if (!hit) { f.n++; loginFails.set(ip, f); console.log(`[login] Fehlversuch (${ip})`); return send(res, 401, { error: tr(req, 'err.code') }); }
       setCookie(req, res, sign({ c: hash(hit), exp: Date.now() + SESSION_DAYS * 864e5 }), SESSION_DAYS * 86400);
       console.log(`[login] ok Code ${hash(hit)}`); return send(res, 200, { ok: true });
     }
     if (req.method === 'POST' && p === '/api/magic') {
-      if (!allowRate(rateMap, 'ip:' + ip, MAGIC_LIMIT_IP, MAGIC_WINDOW_MS)) return send(res, 429, { error: 'Zu viele Anmeldelinks von dieser Verbindung. Bitte warte einen Moment.' });
+      if (!allowRate(rateMap, 'ip:' + ip, MAGIC_LIMIT_IP, MAGIC_WINDOW_MS)) return send(res, 429, { error: tr(req, 'err.magicIp') });
       const b = await readBody(req, 4096);
       const email = normEmail(b.email);
-      if (!email) return send(res, 400, { error: 'Bitte eine gültige E-Mail-Adresse eingeben.' });
-      if (!allowRate(rateMap, 'em:' + email, MAGIC_LIMIT_EMAIL, MAGIC_WINDOW_MS)) return send(res, 429, { error: 'Zu viele Anmeldelinks für diese Adresse. Bitte warte 15 Minuten.' });
+      if (!email) return send(res, 400, { error: tr(req, 'err.email') });
+      if (!allowRate(rateMap, 'em:' + email, MAGIC_LIMIT_EMAIL, MAGIC_WINDOW_MS)) return send(res, 429, { error: tr(req, 'err.magicEmail') });
       const token = sign({ typ: 'login', e: email, n: crypto.randomBytes(16).toString('hex'), exp: Date.now() + MAGIC_MINUTES * 60e3 });
       const link = publicBase(req) + '/auth/verify?t=' + encodeURIComponent(token);
-      console.log('[magic] Link angefordert ' + hash(email));
+      const lang = reqLang(req);
+      console.log('[magic] Link angefordert ' + hash(email) + ' ' + lang);
       try {
-        const sent = await sendMagicMail(email, link);
-        if (!sent.delivered && PROD) return send(res, 503, { error: 'Anmeldung per E-Mail ist gerade nicht verfügbar.' });
+        const sent = await sendMagicMail(email, link, lang);
+        if (!sent.delivered && PROD) return send(res, 503, { error: tr(req, 'err.magicDown') });
         return send(res, 200, { ok: true, delivered: sent.delivered, dev: !!sent.dev });
-      } catch { return send(res, 502, { error: 'Die E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.' }); }
+      } catch { return send(res, 502, { error: tr(req, 'err.magicSend') }); }
     }
     if (req.method === 'GET' && p === '/auth/verify') {
+      const lang = reqLang(req);
       const magic = readMagic(url.searchParams.get('t') || '');
-      if (!magic) return sendHtml(res, 400, linkPage('Link ungültig', 'Dieser Anmeldelink ist abgelaufen oder ungültig. Bitte fordere einen neuen an. Er gilt 15 Minuten.'));
-      if (!takeNonce(magic.n)) return sendHtml(res, 400, linkPage('Link schon verwendet', 'Dieser Anmeldelink wurde bereits benutzt. Bitte fordere einen neuen an.'));
+      if (!magic) return sendHtml(res, 400, linkPage(lang, i18n.t(lang, 'err.linkTitle'), i18n.t(lang, 'err.linkBody')));
+      if (!takeNonce(magic.n)) return sendHtml(res, 400, linkPage(lang, i18n.t(lang, 'err.linkUsedTitle'), i18n.t(lang, 'err.linkUsedBody')));
       const email = normEmail(magic.e);
       setCookie(req, res, sign({ typ: 'acct', e: email, exp: Date.now() + ACCOUNT_DAYS * 864e5 }), ACCOUNT_DAYS * 86400);
       console.log('[magic] angemeldet ' + hash(email));
@@ -569,18 +622,18 @@ const server = http.createServer(async (req, res) => {
     const sess = await enrich(session(req));
     if (req.method === 'GET' && p === '/api/me') return send(res, 200, mePayload(sess, ip));
     if (req.method === 'GET' && p === '/api/status') {
-      if (!sess) return send(res, 401, { error: 'Bitte anmelden', login: true });
+      if (!sess) return send(res, 401, { error: tr(req, 'err.login'), login: true });
       const models = activeModels(sess);
       return send(res, 200, { ok: !!KEY || MOCK, mock: MOCK, models: models.map(m => ({ label: m.label, id: m.id })), catalog: MODELS.map(m => ({ label: m.label, id: m.id })), usage: usage(sess, ip), plan: planOf(sess), features: featuresOf(sess), stripe: stripeReady(), freeLessons: FREE_LESSONS });
     }
     if (req.method === 'POST' && p === '/api/checkout') {
-      if (!sess || sess.kind !== 'account') return send(res, 401, { error: 'Bitte mit E-Mail anmelden.', login: true });
+      if (!sess || sess.kind !== 'account') return send(res, 401, { error: tr(req, 'err.loginEmail'), login: true });
       const b = await readBody(req, 4096);
-      if (b.consent !== true) return send(res, 400, { error: 'Bitte die AGB akzeptieren und dem sofortigen Beginn zustimmen.' });
-      if (!stripeReady()) return send(res, 503, { error: 'Pro bald verfügbar', unavailable: true });
-      if (sess.tier === 'pro') return send(res, 409, { error: 'Du hast bereits Pro. Über „Abo verwalten“ kannst du es ändern.', portal: true });
+      if (b.consent !== true) return send(res, 400, { error: tr(req, 'err.consent') });
+      if (!stripeReady()) return send(res, 503, { error: tr(req, 'err.proSoon'), unavailable: true });
+      if (sess.tier === 'pro') return send(res, 409, { error: tr(req, 'err.alreadyPro'), portal: true });
       const price = b.plan === 'year' ? STRIPE_PRICE_YEARLY : b.plan === 'month' ? STRIPE_PRICE_MONTHLY : '';
-      if (!price) return send(res, 400, { error: 'Dieser Tarif ist nicht verfügbar.' });
+      if (!price) return send(res, 400, { error: tr(req, 'err.price') });
       const base = publicBase(req);
       const consentAt = new Date().toISOString();
       const params = {
@@ -588,7 +641,7 @@ const server = http.createServer(async (req, res) => {
         'line_items[0][price]': price,
         'line_items[0][quantity]': '1',
         allow_promotion_codes: 'true',
-        locale: 'de',
+        locale: reqLang(req),
         success_url: base + '/?abo=ok',
         cancel_url: base + '/?abo=abbruch',
         client_reference_id: hash(sess.email),
@@ -605,30 +658,30 @@ const server = http.createServer(async (req, res) => {
         if (!session.url) throw new Error('Checkout ohne URL');
         console.log('[stripe] Checkout ' + hash(sess.email) + ' ' + (b.plan === 'year' ? 'jahr' : 'monat'));
         return send(res, 200, { url: session.url });
-      } catch (e) { console.log('[stripe] Checkout fehlgeschlagen: ' + safeErr(e)); return send(res, 502, { error: 'Der Kauf konnte nicht gestartet werden. Bitte später erneut versuchen.' }); }
+      } catch (e) { console.log('[stripe] Checkout fehlgeschlagen: ' + safeErr(e)); return send(res, 502, { error: tr(req, 'err.checkout') }); }
     }
     if (req.method === 'POST' && p === '/api/portal') {
-      if (!sess || sess.kind !== 'account') return send(res, 401, { error: 'Bitte mit E-Mail anmelden.', login: true });
-      if (!STRIPE_SECRET_KEY) return send(res, 503, { error: 'Pro bald verfügbar', unavailable: true });
+      if (!sess || sess.kind !== 'account') return send(res, 401, { error: tr(req, 'err.loginEmail'), login: true });
+      if (!STRIPE_SECRET_KEY) return send(res, 503, { error: tr(req, 'err.proSoon'), unavailable: true });
       await readBody(req, 4096);
-      if (!sess.customerId) return send(res, 404, { error: 'Noch kein Abo vorhanden.' });
+      if (!sess.customerId) return send(res, 404, { error: tr(req, 'err.noSub') });
       try {
-        const portal = await stripePost('/v1/billing_portal/sessions', { customer: sess.customerId, return_url: publicBase(req) + '/?abo=portal', locale: 'de' });
+        const portal = await stripePost('/v1/billing_portal/sessions', { customer: sess.customerId, return_url: publicBase(req) + '/?abo=portal', locale: reqLang(req) });
         if (!portal.url) throw new Error('Portal ohne URL');
         return send(res, 200, { url: portal.url });
-      } catch (e) { console.log('[stripe] Portal fehlgeschlagen: ' + safeErr(e)); return send(res, 502, { error: 'Die Abo-Verwaltung konnte nicht geöffnet werden.' }); }
+      } catch (e) { console.log('[stripe] Portal fehlgeschlagen: ' + safeErr(e)); return send(res, 502, { error: tr(req, 'err.portalOpen') }); }
     }
     if (req.method === 'POST' && (p === '/api/analyse' || p === '/api/texte')) {
-      if (!sess) return send(res, 401, { error: 'Bitte anmelden', login: true });
-      if (!KEY && !MOCK) return send(res, 500, { error: 'OPENROUTER_API_KEY ist auf dem Server nicht gesetzt' });
+      if (!sess) return send(res, 401, { error: tr(req, 'err.login'), login: true });
+      if (!KEY && !MOCK) return send(res, 500, { error: tr(req, 'err.noKey') });
       const isA = p === '/api/analyse';
       const decision = decideAccess(accessCtx(sess, ip, !isA));
       if (!decision.allow) {
         if (decision.limit === 'budget') console.log(`[budget] Tagesbudget $${DAILY_BUDGET} erreicht – Anfrage abgelehnt`);
-        return send(res, decision.status, { error: decision.error, limit: decision.limit, upgrade: !!decision.upgrade, usage: usage(sess, ip) });
+        return deny(res, req, decision, { usage: usage(sess, ip) });
       }
-      const b = await readBody(req); const goal = ['Instagram', 'Wettbewerb', 'Lernen'].includes(b.goal) ? b.goal : 'Instagram';
-      if (!validImg(b.image)) return send(res, 400, { error: 'Bild fehlt oder hat ein ungültiges Format' });
+      const b = await readBody(req); const goal = goalKey(b.goal); const lang = reqLang(req);
+      if (!validImg(b.image)) return send(res, 400, { error: tr(req, 'err.image') });
       const key = usageKey(sess);
       if (isA && sess.kind === 'account' && sess.tier === 'free') weekBump(sess.email); else bump((isA ? 'a:' : 't:') + key);
       bump((isA ? 'i:' : 'ti:') + ip);
@@ -636,26 +689,35 @@ const server = http.createServer(async (req, res) => {
       const usedNow = () => (sess.kind === 'account' && sess.tier === 'free') ? weekCount(sess.email) : count('a:' + key);
       if (isA) {
         const models = activeModels(sess);
-        const t0 = Date.now(); const P = (process.env.ALLOW_PROMPT_V1 === '1' && b.promptVersion === 1) ? ANALYSE_PROMPT_V1 : ANALYSE_PROMPT;
+        const t0 = Date.now(); const P = (process.env.ALLOW_PROMPT_V1 === '1' && b.promptVersion === 1) ? analysePromptV1 : analysePrompt;
         const results = await Promise.all(models.map(async m => {
-          try { const r = await withRetry(m.id, P(goal), b.image, 4000, normAnalyse);
+          try { const r = await withRetry(m.id, P(goal, lang), b.image, 4000, normAnalyse);
             return { label: m.label, model: m.id, ok: true, data: r.data, usage: r.usage };
-          } catch (e) { return { label: m.label, model: m.id, ok: false, error: e.message, cost: e.cost || 0 }; }
+          } catch (e) { console.log(`[analyse] ${m.id} FEHLER: ${safeErr(e)}`); return { label: m.label, model: m.id, ok: false, error: publicModelErr(lang, e), cost: e.cost || 0 }; }
         }));
         const cost = results.reduce((a, r) => a + (r.usage?.cost || r.cost || 0), 0); spent += cost;
-        results.filter(r => !r.ok).forEach(r => console.log(`[analyse] ${r.model} FEHLER: ${r.error}`));
+        results.filter(r => !r.ok).forEach(r => console.log(`[analyse] ${r.model} nicht ok`));
         const cap = sess.kind === 'account' && sess.tier === 'free' ? FREE_WEEKLY : (sess.kind === 'account' ? PRO_DAILY : LIMIT_PER_CODE);
         console.log(`[analyse] ${Date.now() - t0} ms, ok=${results.filter(r => r.ok).length}/${results.length}, Kosten ≈ $${cost.toFixed(5)}, heute $${spent.toFixed(4)}/${DAILY_BUDGET}, ${who} ${usedNow()}/${cap}`);
         return send(res, results.some(r => r.ok) ? 200 : 502, { results, cost, edit: consensus(results.filter(r => r.ok)), usage: usage(sess, ip) });
       } else {
-        const r = await withRetry(TEXT_MODEL, TEXT_PROMPT(goal), b.image, 2500); spent += r.usage?.cost || 0;
-        const j = r.data; const fix = (x) => ({ text: String(x?.text || ''), hashtags: (Array.isArray(x?.hashtags) ? x.hashtags : []).map(h => '#' + String(h).replace(/^#+/, '').replace(/\s+/g, '')).slice(0, 10) });
-        console.log(`[texte] Kosten ≈ $${(r.usage?.cost || 0).toFixed(5)}, heute $${spent.toFixed(4)}/${DAILY_BUDGET}, ${who}`);
-        return send(res, 200, { de: fix(j.de), en: fix(j.en), model: TEXT_MODEL, cost: r.usage?.cost || 0 });
+        const r = await withRetry(TEXT_MODEL, textPrompt(goal, lang), b.image, 2500); spent += r.usage?.cost || 0;
+        const j = r.data || {};
+        const raw = j.text ? j : (j[lang] || j.en || j.de || {});
+        const fix = (x) => ({ text: String(x?.text || ''), hashtags: (Array.isArray(x?.hashtags) ? x.hashtags : []).map(h => '#' + String(h).replace(/^#+/, '').replace(/\s+/g, '')).slice(0, 10) });
+        console.log(`[texte] ${lang} Kosten ≈ $${(r.usage?.cost || 0).toFixed(5)}, heute $${spent.toFixed(4)}/${DAILY_BUDGET}, ${who}`);
+        return send(res, 200, { lang, caption: fix(raw), model: TEXT_MODEL, cost: r.usage?.cost || 0 });
       }
     }
-    send(res, 404, { error: 'Nicht gefunden' });
-  } catch (e) { console.log(`[fehler] ${p}: ${safeErr(e)}`); if (!res.headersSent) send(res, e.status || 500, { error: e.status ? e.message : 'Interner Fehler' }); }
+    send(res, 404, { error: tr(req, 'err.notFound') });
+  } catch (e) {
+    console.log(`[fehler] ${p}: ${safeErr(e)}`);
+    if (!res.headersSent) {
+      const lang = reqLang(req);
+      const msg = e.status === 413 ? i18n.t(lang, 'err.tooLarge') : e.status === 400 ? i18n.t(lang, 'err.badRequest') : (e.status ? publicModelErr(lang, e) : i18n.t(lang, 'err.internal'));
+      send(res, e.status || 500, { error: msg });
+    }
+  }
 });
 server.requestTimeout = 180000; server.headersTimeout = 30000;
 // Render Free schläft nach ~15 Min. ohne eingehende Anfragen ein. RENDER_EXTERNAL_URL setzt Render selbst.
@@ -717,4 +779,6 @@ module.exports = {
   sign, verifySigned, verifyStripeSignature, normEmail, readSession, readMagic, decideAccess,
   weekBump, weekCount, allowRate, takeNonce, hash, resetEphemeral, formEncode,
   FREE_WEEKLY, PRO_DAILY, FREE_LESSONS,
+  pickLang: i18n.pickLang, t: i18n.t, mailCopy: i18n.mailCopy, course: i18n.course,
+  dictionaryKeys: i18n.dictionaryKeys, LANGS: i18n.LANGS, analysePrompt, textPrompt, goalKey,
 };

@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Privacy notice – Lumen</title><link rel="icon" href="/icon.svg"><meta name="theme-color" content="#0d0d0e"><style>
+:root{--bg:#0d0d0e;--s1:#151517;--line:#2a2a2e;--tx:#f1efe9;--mu:#8f8d87;--ac:#c9a97c}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,"SF Pro Text",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:0 auto;padding:24px 20px 60px}
+a{color:var(--ac)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+.brand{font-weight:600;letter-spacing:.18em;font-size:12px;color:var(--ac);text-transform:uppercase;text-decoration:none}
+h1{font-size:28px;font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+h2{font-size:17px;font-weight:600;margin:28px 0 8px}
+p,li{color:#d6d3cb;font-size:14.5px}ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
+.warn{border:1px solid #5a4a33;background:#1d1912;color:#e4d2b4;border-radius:14px;padding:14px 16px;font-size:13.5px;margin:16px 0 8px}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:8px}
+small{color:var(--mu)}
+</style></head><body><main>
+<!-- TODO RECHTLICHE PRÜFUNG: Convenience translation of the privacy notice. The German Datenschutz text is binding and still needs legal review, including Resend and Stripe DPAs and transfers to the USA. -->
+<div class="top"><a class="brand" href="/">← Lumen</a><small>As of 15 October 2026</small></div>
+<h1>Privacy notice</h1>
+<p class="warn">The German version prevails. This English page is a convenience translation. If the two differ, the <a href="/datenschutz">German privacy notice</a> is the binding text. Italian, French and Spanish in the app link here.</p>
+<p>We process personal data only under the GDPR, the Austrian Data Protection Act (DSG) and the Telecommunications Act 2021 (TKG 2021). This page describes what Lumen processes.</p>
+<h2>1. Controller</h2>
+<div class="card"><p>Picwish-Fotodesign, owner Robert Tüchi, Amnundsengasse 13/5, 8010 Graz, Austria · Email: <a href="mailto:robert.tuechi@gmail.com">robert.tuechi@gmail.com</a></p></div>
+<h2>2. Photos you ask us to analyse</h2>
+<ul>
+<li>Your browser resizes the photo (max. 1024 px) and sends it to our server for analysis.</li>
+<li>The server forwards it <b>only for analysis</b> through <b>OpenRouter</b> (OpenRouter, Inc., USA) to model providers. The free plan uses one <b>Google</b> model. Pro or an invite code can use up to three: <b>OpenAI</b>, <b>Google</b> and <b>Anthropic</b>. Social captions (Pro or invite only) go to OpenAI once more.</li>
+<li><b>We do not store your photos.</b> They stay in memory and are discarded after the reply. We also do not store analysis results on the server.</li>
+<li>How long OpenRouter and the model providers keep or log data follows their terms. See the <a href="https://openrouter.ai/privacy">OpenRouter privacy policy</a>.</li>
+<li>Please do not upload photos in which other people are recognisable without their consent, and do not upload sensitive content.</li>
+</ul>
+<p><b>Legal basis:</b> Art. 6 (1) (b) GDPR (providing the analysis you asked for). If people are recognisable, you are responsible for having the right to use the photo.</p>
+<h2>3. Transfers to third countries (USA)</h2>
+<p>OpenRouter, the model providers and Resend are in the USA. Stripe processes payments via Stripe Payments Europe (Ireland); group companies in the USA may be involved. Transfers to the USA rely on the EU-US Data Privacy Framework or EU standard contractual clauses under Art. 46 GDPR. Details are in the Resend and Stripe sections.</p>
+<h2>4. Email account (Resend)</h2>
+<p>You can create an account with your email address. We send a one-time sign-in link (valid for 15 minutes) through <b>Resend</b> (Resend, Inc., USA). Resend receives your email address and the message (the link). We do not run our own user database: the address lives in the sign-in cookie and, if you buy Pro, at Stripe.</p>
+<p>Legal basis: Art. 6 (1) (b) GDPR (creating and running the account). Resend privacy policy: <a href="https://resend.com/legal/privacy-policy" rel="noopener">resend.com/legal/privacy-policy</a>.</p>
+<h2>5. Cookies</h2>
+<p>After sign-in we set a <b>strictly necessary cookie</b> named “lumen_s” (HttpOnly, SameSite=Lax, Secure on HTTPS). There are no tracking or advertising cookies.</p>
+<ul>
+<li><b>Invite code:</b> a signed checksum of the code and an expiry, 14 days. No email address.</li>
+<li><b>Email account:</b> your email address and an expiry, signed, 30 days. That is how we recognise the account and the plan, without storing a password.</li>
+<li><b>Language:</b> the cookie “lumen_lang” (not HttpOnly, so the page can set it, SameSite=Lax, one year) stores the chosen interface language (de, en, it, fr or es). The server uses it for emails, error messages, Stripe Checkout and the language of the AI reply. The same choice is also kept in localStorage under “lumenLang”.</li>
+</ul>
+<p>Legal basis: § 165 (3) TKG 2021 and Art. 6 (1) (b) or (f) GDPR (providing the account and limiting abuse; language so the service can answer in the language you chose).</p>
+<h2>6. Payments (Stripe)</h2>
+<p>Paid plans run through <b>Stripe</b> (Stripe Payments Europe, Ltd., Ireland, and Stripe, Inc., USA). You enter payment details on Stripe’s page. We do not store card numbers. Stripe processes in particular your email address, customer id, subscription status and payment method so we can tell whether Pro is active. We ask Stripe for that status and keep it in memory for a few minutes. Cancellation and invoices go through the Stripe customer portal (“Manage subscription”).</p>
+<p>Legal basis: Art. 6 (1) (b) GDPR (contract). Stripe privacy policy: <a href="https://stripe.com/privacy" rel="noopener">stripe.com/privacy</a>.</p>
+<h2>7. Abuse limits</h2>
+<p>To cap cost and abuse we count analyses: three per rolling week on the free account, 15 per day on Pro, the daily limit of an invite code, plus a limit per IP address and a global daily budget. These counters live only in memory and are cleared on restart; daily counters also reset at midnight (Vienna). Legal basis: Art. 6 (1) (f) GDPR.</p>
+<h2>8. Hosting and server logs</h2>
+<p>The app is hosted by Render Services, Inc. (USA), with servers in Frankfurt am Main (EU). When you open the app the host processes technically necessary data (for example IP address, time, requested URL) in server logs. Our own logs contain no photos, only time, cost and shortened code checksums. Retention follows the <a href="https://render.com/privacy">Render privacy policy</a>.</p>
+<h2>9. Data in your browser</h2>
+<p>Course progress (“lumenDone”) and the chosen language (“lumenLang”) are stored only in your browser (localStorage). We do not receive the progress. The language is also written to the lumen_lang cookie so the server knows it. You can delete both in the browser settings.</p>
+<h2>10. Your rights</h2>
+<p>You have the right of access, rectification, erasure, restriction, portability and objection (Art. 15–21 GDPR). Write to <a href="mailto:robert.tuechi@gmail.com">robert.tuechi@gmail.com</a>.</p>
+<p>You can also complain to the <b>Austrian Data Protection Authority</b>: Barichgasse 40–42, 1030 Vienna, <a href="https://www.dsb.gv.at" rel="noopener">www.dsb.gv.at</a>.</p>
+<p style="margin-top:36px"><small><a href="/datenschutz">German version (binding)</a> · <a href="/en/datenschutz">Privacy</a> · <a href="/en/impressum">Legal notice</a> · <a href="/en/agb">Terms</a> · <a href="/en/widerruf">Withdrawal</a></small></p></main></body></html>

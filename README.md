@@ -66,6 +66,7 @@ Am Handy im selben WLAN: `http://<IP-des-Rechners>:8787`.
 | `STRIPE_SECRET_KEY` | – | Stripe-API |
 | `STRIPE_WEBHOOK_SECRET` | – | Signatur von `/stripe/webhook` |
 | `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY` | – | Price-IDs für 4,99 €/Monat und 39 €/Jahr |
+| `STRIPE_LUMEN_EXTRA_PRICE_IDS` | – | Weitere Lumen-Price-IDs, Komma-getrennt. Nur diese und die beiden Preise oben zählen als Pro |
 
 ## Kosten (Schätzung)
 Preise laut OpenRouter-Modellliste am 15.10.2026, pro 1 Mio. Tokens Eingabe/Ausgabe:
@@ -94,8 +95,12 @@ Der Server schreibt die tatsächlichen Kosten (`usage.cost` von OpenRouter) in d
 
 ## Projektstruktur
 ```
-server.js              Server: App ausliefern, Login, Limits, KI-Anfragen
-public/                index.html (App), datenschutz.html, impressum.html, agb.html, widerruf.html, Manifest, Icons
+server.js              Server: App ausliefern, Login, Limits, KI-Anfragen, Sprache
+public/index.html      App
+public/i18n.js         Wörterbuch (de, en, it, fr, es), ohne npm-Paket
+public/course.js       Fotokurs in denselben fünf Sprachen
+public/                datenschutz.html, impressum.html, agb.html, widerruf.html (deutsch, verbindlich)
+public/en/             dieselben vier Seiten auf Englisch (Übersetzungshilfe)
 package.json           Start mit "npm start"
 render.yaml            Blueprint für Render.com (Free-Plan, Region Frankfurt)
 Dockerfile             Alternative für Railway, Fly.io oder einen eigenen Server
@@ -136,7 +141,7 @@ Neben den Einladungscodes gibt es ein Konto per E-Mail (kein Passwort).
 | Pro | 15 pro Tag | GPT, Gemini, Claude | ja | alle sechs |
 | Einladungscode | wie bisher 20/Code und 30/IP pro Tag | alle drei | ja | alle sechs |
 
-Pro ist ein Stripe-Abo mit Status `active` oder `trialing` für die E-Mail des Kontos. Stripe ist die Quelle, der Server hält das Ergebnis wenige Minuten im Cache. Der Webhook `/stripe/webhook` leert bzw. setzt diesen Cache bei `checkout.session.completed`, `customer.subscription.updated` und `customer.subscription.deleted`. Die Signatur (`Stripe-Signature`) wird mit HMAC-SHA256 über den unveränderten Body geprüft.
+Pro ist ein Stripe-Abo mit Status `active` oder `trialing`, das einen Lumen-Preis enthält: `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` oder eine ID aus `STRIPE_LUMEN_EXTRA_PRICE_IDS`. Andere Produkte auf demselben Stripe-Konto, zum Beispiel der Preisrechner mit eigenen Einmal- und Abo-Preisen, zählen nicht. Stripe ist die Quelle, der Server hält das Ergebnis wenige Minuten im Cache. Der Webhook `/stripe/webhook` setzt diesen Cache nur, wenn Checkout oder Abo einen dieser Preise enthält. Sitzungen und Abos anderer Preise lässt er liegen. Die Signatur (`Stripe-Signature`) wird mit HMAC-SHA256 über den unveränderten Body geprüft.
 
 Fehlen `STRIPE_SECRET_KEY` oder beide Preis-IDs, startet der Server trotzdem. Statt der Kauf-Buttons steht **Pro bald verfügbar**.
 
@@ -150,14 +155,26 @@ Das globale Tagesbudget (`DAILY_BUDGET_USD`) gilt für alle Tarife.
 2. **Stripe-Produkt** „Lumen Pro“ mit zwei Preisen, Währung EUR, wiederkehrend:
    - Monat: **4,99 €** → Price-ID nach `STRIPE_PRICE_MONTHLY`
    - Jahr: **39 €** → Price-ID nach `STRIPE_PRICE_YEARLY`
-3. **Zahlungsmethoden** im Stripe-Dashboard aktivieren (Karten und was sonst automatisch angeboten werden soll). Der Checkout setzt keine feste Liste, damit Stripe die automatischen Methoden aus dem Dashboard nimmt. Aktionscodes sind erlaubt, die Sprache ist Deutsch.
+   - Weitere Lumen-Preise, falls nötig, kommagetrennt nach `STRIPE_LUMEN_EXTRA_PRICE_IDS`. Preise des Preisrechners gehören dort nicht hinein. Dasselbe Stripe-Konto darf beide Produkte führen. Nur ein Abo mit einem Lumen-Preis schaltet Pro frei.
+3. **Zahlungsmethoden** im Stripe-Dashboard aktivieren (Karten und was sonst automatisch angeboten werden soll). Der Checkout setzt keine feste Liste, damit Stripe die automatischen Methoden aus dem Dashboard nimmt. Aktionscodes sind erlaubt. Die Checkout-Sprache folgt der gewählten App-Sprache (`de`, `en`, `it`, `fr` oder `es`).
 4. **Webhook** im Stripe-Dashboard anlegen:
    - URL: `https://lumen-67oi.onrender.com/stripe/webhook`
    - Ereignisse: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
    - Signing-Secret nach `STRIPE_WEBHOOK_SECRET`
 5. **Kundenportal** im Stripe-Dashboard aktivieren (Kündigen, Zahlungsmittel, Rechnungen) und die Rückkehr-URL auf `https://lumen-67oi.onrender.com` setzen.
 6. In **Render** die neuen Variablen aus `render.yaml` eintragen (`sync: false`, Render fragt sie ab). Bestehende Variablen (`OPENROUTER_API_KEY`, `ACCESS_CODES`, `SESSION_SECRET`, Limits, Budget) bleiben.
-7. **AGB und Widerruf** (`public/agb.html`, `public/widerruf.html`) vor dem Verkauf juristisch prüfen. Offene Stellen sind im HTML als Kommentar `TODO RECHTLICHE PRÜFUNG` markiert und auf der Seite nicht sichtbar. Das betrifft auch Umsatzsteuer (Kleinunternehmer oder Bruttopreis).
+7. **AGB und Widerruf** (`public/agb.html`, `public/widerruf.html`) vor dem Verkauf juristisch prüfen. Offene Stellen sind im HTML als Kommentar `TODO RECHTLICHE PRÜFUNG` markiert und auf der Seite nicht sichtbar. Das betrifft auch Umsatzsteuer (Kleinunternehmer oder Bruttopreis). Die englischen Seiten unter `public/en/` sind nur eine Übersetzungshilfe. Verbindlich bleibt der deutsche Text. Dafür braucht es keine neue Render-Variable.
+
+## Sprachen
+
+Die Oberfläche, die Magic-Link-Mail, Fehlermeldungen, der Fotokurs, die KI-Bewertung und die Instagram-Texte folgen der Sprache des Nutzers.
+
+- Unterstützt: Deutsch (`de`), Englisch (`en`), Italienisch (`it`), Französisch (`fr`), Spanisch (`es`).
+- Ohne eigene Wahl nimmt der Server den ersten passenden Eintrag aus `Accept-Language`. `de-AT`, `de-DE` und `de-CH` werden Deutsch. `it-IT` wird Italienisch. Passt keine Sprache (zum Beispiel `pt-BR`), ist die Seite Englisch.
+- Im Browser gilt dieselbe Reihenfolge: Cookie `lumen_lang`, sonst `localStorage` (`lumenLang`), sonst `navigator.languages`, sonst Englisch. Der Schalter in der Kopfzeile schreibt Cookie und localStorage. Das Cookie ist nicht HttpOnly, ein Jahr gültig, SameSite=Lax, damit der Server die Mail, Stripe (`locale`) und die Prompts in dieser Sprache ausliefert.
+- `<html lang>` setzt der Browser auf den gewählten Code.
+- Impressum, Datenschutz, AGB und Widerruf bleiben auf Deutsch verbindlich (`/impressum` und so weiter). Englische Fassungen liegen unter `/en/…` und sagen auf der Seite, dass die deutsche Fassung vorgeht. Italienisch, Französisch und Spanisch verlinken auf die englischen Seiten.
+- Es kommt kein neues npm-Paket dazu. Die Texte stehen in `public/i18n.js` und `public/course.js`.
 
 ## Produktion
 - `PORT` kommt aus der Umgebung (Render und Railway setzen ihn automatisch).

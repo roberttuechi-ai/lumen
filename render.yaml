@@ -40,3 +40,5 @@ services:
         sync: false       # Price-ID für 4,99 € pro Monat
       - key: STRIPE_PRICE_YEARLY
         sync: false       # Price-ID für 39 € pro Jahr
+      - key: STRIPE_LUMEN_EXTRA_PRICE_IDS
+        sync: false       # optional, weitere Lumen-Price-IDs, Komma-getrennt. Andere Produkte auf demselben Stripe-Konto zählen nicht als Pro

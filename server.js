@@ -1,6 +1,6 @@
 // Lumen – kleiner Server für den Prototyp. Start: OPENROUTER_API_KEY=... node server.js
 // Der API-Schlüssel bleibt ausschließlich auf dem Server (Umgebungsvariable) und wird nie ausgegeben.
-const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
+const http = require('http'), https = require('https'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const PORT = process.env.PORT || 8787;
 const KEY = process.env.OPENROUTER_API_KEY;
 const MODELS = [
@@ -264,6 +264,50 @@ const server = http.createServer(async (req, res) => {
   } catch (e) { console.log(`[fehler] ${p}: ${e.message}`); if (!res.headersSent) send(res, e.status || 500, { error: e.status ? e.message : 'Interner Fehler' }); }
 });
 server.requestTimeout = 180000; server.headersTimeout = 30000;
-server.listen(PORT, () => console.log(`Lumen läuft auf Port ${PORT} · Schlüssel ${KEY ? 'gesetzt' : 'FEHLT'}${MOCK ? ' · TESTMODUS' : ''} · Zugang ${AUTH_REQUIRED ? ACCESS_CODES.length + ' Code(s)' : 'OFFEN (keine ACCESS_CODES)'} · Limit ${LIMIT_PER_CODE}/Code/Tag · Budget $${DAILY_BUDGET}/Tag${process.env.SESSION_SECRET ? '' : ' · WARNUNG: SESSION_SECRET fehlt'}`));
-const stop = () => { console.log('Beende …'); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 10000).unref(); };
+// Render Free schläft nach ~15 Min. ohne eingehende Anfragen ein. RENDER_EXTERNAL_URL setzt Render selbst.
+// Dann etwa alle 10 Min. GET /healthz auf der eigenen öffentlichen Adresse (zählt nicht als Nutzung, nicht gegen das Budget).
+// KEEP_AWAKE=0 schaltet ab. KEEP_AWAKE_MS (Millisekunden, 1000 … 2^31-1) nur zum Testen. Timer ist unref, hält den Prozess nicht offen.
+function startKeepAwake() {
+  const base = env('RENDER_EXTERNAL_URL', '').replace(/\/+$/, '');
+  if (!base) return null;
+  if (env('KEEP_AWAKE', '1') === '0') { console.log('[keep-awake] aus'); return null; }
+  let target;
+  try {
+    target = new URL(base);
+    if (target.protocol !== 'http:' && target.protocol !== 'https:') throw new Error('Protokoll');
+    target.pathname = '/healthz'; target.search = ''; target.hash = '';
+  } catch { console.log('[keep-awake] RENDER_EXTERNAL_URL ungültig'); return null; }
+  const raw = +process.env.KEEP_AWAKE_MS, max = 2 ** 31 - 1;
+  const ms = Number.isFinite(raw) && raw >= 1000 && raw <= max ? raw : 10 * 60 * 1000;
+  const lib = target.protocol === 'https:' ? https : http;
+  const ping = () => {
+    let req;
+    try {
+      req = lib.request(target, { method: 'GET', timeout: 20000, headers: { Connection: 'close' } }, (r) => {
+        try {
+          r.resume();
+          if (r.statusCode !== 200) console.log(`[keep-awake] HTTP ${r.statusCode}`);
+        } catch (e) { console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`); }
+      });
+      req.on('socket', (socket) => { try { socket.unref(); } catch {} }); // Request hält den Prozess beim Beenden nicht offen
+      req.on('timeout', () => { try { req.destroy(); } catch {} });
+      req.on('error', (e) => console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`));
+      req.end();
+    } catch (e) {
+      console.log(`[keep-awake] ${String(e && e.message || e).slice(0, 160)}`);
+      if (req) { req.on('error', () => {}); try { req.destroy(); } catch {} }
+    }
+  };
+  const timer = setInterval(ping, ms);
+  timer.unref();
+  const every = ms % 60000 === 0 ? `${ms / 60000} min` : `${ms} ms`;
+  console.log(`[keep-awake] aktiv, alle ${every} → ${target.host}/healthz`);
+  return timer;
+}
+let keepAwakeTimer = null;
+server.listen(PORT, () => {
+  console.log(`Lumen läuft auf Port ${PORT} · Schlüssel ${KEY ? 'gesetzt' : 'FEHLT'}${MOCK ? ' · TESTMODUS' : ''} · Zugang ${AUTH_REQUIRED ? ACCESS_CODES.length + ' Code(s)' : 'OFFEN (keine ACCESS_CODES)'} · Limit ${LIMIT_PER_CODE}/Code/Tag · Budget $${DAILY_BUDGET}/Tag${process.env.SESSION_SECRET ? '' : ' · WARNUNG: SESSION_SECRET fehlt'}`);
+  keepAwakeTimer = startKeepAwake();
+});
+const stop = () => { console.log('Beende …'); if (keepAwakeTimer) clearInterval(keepAwakeTimer); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 10000).unref(); };
 process.on('SIGTERM', stop); process.on('SIGINT', stop);

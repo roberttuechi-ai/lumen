@@ -593,7 +593,8 @@ const STATIC = { '/': ['index.html', 'text/html; charset=utf-8'], '/index.html':
   '/en/datenschutz': ['en/datenschutz.html', 'text/html; charset=utf-8'], '/en/impressum': ['en/impressum.html', 'text/html; charset=utf-8'],
   '/en/agb': ['en/agb.html', 'text/html; charset=utf-8'], '/en/widerruf': ['en/widerruf.html', 'text/html; charset=utf-8'],
   '/i18n.js': ['i18n.js', 'text/javascript; charset=utf-8'], '/course.js': ['course.js', 'text/javascript; charset=utf-8'],
-  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'], '/icon.svg': ['icon.svg', 'image/svg+xml'],
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
+  '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'], '/icon-maskable-192.png': ['icon-maskable-192.png', 'image/png'], '/icon-maskable-512.png': ['icon-maskable-512.png', 'image/png'], '/icon.svg': ['icon.svg', 'image/svg+xml'],
   '/favicon.ico': ['icon-192.png', 'image/png'], '/icon-192.png': ['icon-192.png', 'image/png'], '/icon-512.png': ['icon-512.png', 'image/png'],
   '/apple-touch-icon.png': ['icon-192.png', 'image/png'] };
 function mePayload(sess, ip) {
@@ -609,6 +610,14 @@ function linkPage(lang, title, text) {
   return `<!DOCTYPE html><html lang="${code}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(title)} – Lumen</title><style>body{font-family:Inter,-apple-system,sans-serif;background:#0d0d0e;color:#f1efe9;margin:0;padding:32px 20px}main{max-width:420px;margin:0 auto}a{color:#c9a97c}p{line-height:1.5;color:#d6d3cb}</style></head><body><main><p style="letter-spacing:.18em;font-size:12px;color:#c9a97c">LUMEN</p><h1>${escHtml(title)}</h1><p>${escHtml(text)}</p><p><a href="/">${escHtml(i18n.t(code, 'err.backLogin'))}</a></p></main></body></html>`;
 }
 
+// Android-App (Trusted Web Activity, Google Play): Digital Asset Links.
+// ANDROID_PACKAGE / ANDROID_CERT_SHA256 (kommagetrennt) überschreiben die Vorgaben. Nach dem ersten
+// Upload zu Google Play den SHA-256 des Play-App-Signaturschlüssels (Play Console → App-Integrität)
+// zusätzlich in ANDROID_CERT_SHA256 eintragen, sonst zeigt die App aus dem Play Store eine Adresszeile.
+const ANDROID_PACKAGE = process.env.ANDROID_PACKAGE || 'at.picwishfotodesign.lumen';
+const ANDROID_CERT_SHA256 = (process.env.ANDROID_CERT_SHA256 || '9D:E0:96:2A:D0:D3:5B:3B:A9:8E:00:1A:A1:79:42:56:19:B5:30:5B:3F:1C:B7:D2:4F:E0:59:E8:06:A7:9D:B8').split(',').map(x => x.trim().toUpperCase()).filter(x => /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(x));
+const ASSETLINKS = JSON.stringify([{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: ANDROID_PACKAGE, sha256_cert_fingerprints: ANDROID_CERT_SHA256 } }]);
+
 const server = http.createServer(async (req, res) => {
   headers(req, res); rollDay();
   const url = new URL(req.url, 'http://x'), p = url.pathname, ip = ipOf(req);
@@ -620,6 +629,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'HEAD') return res.end();
       return fs.createReadStream(path.join(PUBLIC, f)).pipe(res);
     }
+    if ((req.method === 'GET' || req.method === 'HEAD') && p === '/.well-known/assetlinks.json') { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600', 'Access-Control-Allow-Origin': '*' }); return res.end(req.method === 'HEAD' ? undefined : ASSETLINKS); }
     if (p === '/healthz') return send(res, 200, { ok: true, uptime: Math.round(process.uptime()), key: !!KEY || MOCK });
     if (req.method === 'POST' && p === '/stripe/webhook') {
       const raw = await readRaw(req, 1e6);

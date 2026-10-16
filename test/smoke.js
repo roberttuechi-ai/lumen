@@ -201,6 +201,12 @@ test('Server startet ohne die neuen Variablen', async () => {
     assert.equal(me.authRequired, false);
     assert.equal(me.plan, 'open');
     assert.equal(me.stripe, false);
+    for (const p of ['/sw.js', '/icon-maskable-192.png', '/icon-maskable-512.png']) assert.equal((await fetch(base + p)).status, 200, p);
+    const mf = await fetch(base + '/manifest.webmanifest').then((r) => r.json());
+    assert.ok(mf.icons.some((i) => i.sizes === '512x512' && i.purpose === 'maskable'));
+    const [al] = await fetch(base + '/.well-known/assetlinks.json').then((r) => r.json());
+    assert.equal(al.target.package_name, 'at.picwishfotodesign.lumen');
+    assert.ok(al.target.sha256_cert_fingerprints.length >= 1);
   } finally { await stop(srv.child); }
 });
 

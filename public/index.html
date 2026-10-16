@@ -725,4 +725,5 @@ function reveal(){document.documentElement.classList.remove('i18n-wait')}
 try{applyStatic();mountSwitchers();renderSliders();renderKonto();initShareUI()}catch(e){console.warn(e)}
 reveal();
 initServer();
-</script></body></html>
+</script><script>if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));</script>
+</body></html>

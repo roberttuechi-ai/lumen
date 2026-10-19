@@ -1,5 +1,7 @@
 # Lumen – KI-Fotoassistent (Prototyp)
 
+**Testversion 0.4.1** – sichtbare Versionsnummer in der App, Versionsangabe in Health-/Status-Endpunkten und automatisierte GitHub-Actions-Tests.
+
 Web-App (`public/`) mit einem kleinen Node-Server (`server.js`, keine npm-Pakete nötig), der die Fotoanalyse über **OpenRouter** an drei Vision-Modelle schickt.
 
 ## Voraussetzungen

@@ -292,13 +292,13 @@ test('Magic-Link, Gratis-Limit, Checkout-Zustimmung und Webhook', async () => {
     assert.equal(me.features.captions, false);
     const status = await fetch(base + '/api/status', { headers: { cookie } }).then((r) => r.json());
     assert.equal(status.models.length, 1);
-    assert.match(status.models[0].id, /gemini/);
+    assert.equal(status.models[0].id, 'google/gemma-4-26b-a4b-it:free');
 
     const analyse = await fetch(base + '/api/analyse', { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify({ image: TINY, goal: 'Lernen' }) });
     const analysed = await analyse.json();
     assert.equal(analyse.status, 200);
     assert.equal(analysed.results.length, 1);
-    assert.equal(analysed.results[0].label, 'Gemini');
+    assert.equal(analysed.results[0].label, 'Gemma (gratis)');
     const texts = await fetch(base + '/api/texte', { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify({ image: TINY, goal: 'Instagram' }) });
     const textJson = await texts.json();
     assert.equal(texts.status, 403);

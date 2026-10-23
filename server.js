@@ -2,6 +2,7 @@
 // Der API-Schlüssel bleibt ausschließlich auf dem Server (Umgebungsvariable) und wird nie ausgegeben.
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const i18n = require('./public/i18n.js');
+const VERSION = require('./package.json').version;
 const PORT = process.env.PORT || 8787;
 const KEY = process.env.OPENROUTER_API_KEY;
 const MODELS = [
@@ -630,7 +631,7 @@ const server = http.createServer(async (req, res) => {
       return fs.createReadStream(path.join(PUBLIC, f)).pipe(res);
     }
     if ((req.method === 'GET' || req.method === 'HEAD') && p === '/.well-known/assetlinks.json') { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600', 'Access-Control-Allow-Origin': '*' }); return res.end(req.method === 'HEAD' ? undefined : ASSETLINKS); }
-    if (p === '/healthz') return send(res, 200, { ok: true, uptime: Math.round(process.uptime()), key: !!KEY || MOCK });
+    if (p === '/healthz') return send(res, 200, { ok: true, version: VERSION, uptime: Math.round(process.uptime()), key: !!KEY || MOCK });
     if (req.method === 'POST' && p === '/stripe/webhook') {
       const raw = await readRaw(req, 1e6);
       if (!STRIPE_WEBHOOK_SECRET) { console.log('[stripe] WARNUNG: STRIPE_WEBHOOK_SECRET fehlt – Webhook abgelehnt'); return send(res, 503, { error: 'Webhook nicht konfiguriert' }); }
@@ -681,7 +682,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && p === '/api/status') {
       if (!sess) return send(res, 401, { error: tr(req, 'err.login'), login: true });
       const models = activeModels(sess);
-      return send(res, 200, { ok: !!KEY || MOCK, mock: MOCK, models: models.map(m => ({ label: m.label, id: m.id })), catalog: MODELS.map(m => ({ label: m.label, id: m.id })), usage: usage(sess, ip), plan: planOf(sess), features: featuresOf(sess), stripe: stripeReady(), freeLessons: FREE_LESSONS });
+      return send(res, 200, { ok: !!KEY || MOCK, version: VERSION, mock: MOCK, models: models.map(m => ({ label: m.label, id: m.id })), catalog: MODELS.map(m => ({ label: m.label, id: m.id })), usage: usage(sess, ip), plan: planOf(sess), features: featuresOf(sess), stripe: stripeReady(), freeLessons: FREE_LESSONS });
     }
     if (req.method === 'POST' && p === '/api/checkout') {
       if (!sess || sess.kind !== 'account') return send(res, 401, { error: tr(req, 'err.loginEmail'), login: true });

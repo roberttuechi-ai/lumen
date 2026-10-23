@@ -12,6 +12,15 @@ process.env.STRIPE_LUMEN_EXTRA_PRICE_IDS = 'price_extra, price_spaced';
 const app = require('../server.js');
 
 const root = path.join(__dirname, '..');
+
+test('Node.js-Anforderung in Paket, README und CI ist konsistent', () => {
+  const pkg = require('../package.json');
+  const readme = require('fs').readFileSync(path.join(root, 'README.md'), 'utf8');
+  const workflow = require('fs').readFileSync(path.join(root, '.github', 'workflows', 'lumen-checks.yml'), 'utf8');
+  assert.equal(pkg.engines.node, '>=20');
+  assert.match(readme, /Node\.js 20 oder neuer/);
+  assert.match(workflow, /node-version:\s*20/);
+});
 const TINY = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 function limits(over) {
@@ -197,6 +206,7 @@ test('Server startet ohne die neuen Variablen', async () => {
     assert.doesNotMatch(srv.out, /sk_live_|whsec_[A-Za-z0-9]|re_[A-Za-z0-9]/);
     const health = await fetch(base + '/healthz').then((r) => r.json());
     assert.equal(health.ok, true);
+    assert.equal(health.version, require('../package.json').version);
     const me = await fetch(base + '/api/me').then((r) => r.json());
     assert.equal(me.authRequired, false);
     assert.equal(me.plan, 'open');
@@ -226,6 +236,7 @@ test('Magic-Link, Gratis-Limit, Checkout-Zustimmung und Webhook', async () => {
     const home = await fetch(base + '/');
     const html = await home.text();
     assert.match(html, /id="shareBtn"/);
+    assert.match(html, /v0\.4\.1/);
     assert.match(html, /shareEdit/);
     assert.match(html, /faggOk/);
     assert.match(html, /spare 35%/);
@@ -281,6 +292,7 @@ test('Magic-Link, Gratis-Limit, Checkout-Zustimmung und Webhook', async () => {
     assert.equal(me.usage.window, 'week');
     assert.equal(me.features.captions, false);
     const status = await fetch(base + '/api/status', { headers: { cookie } }).then((r) => r.json());
+    assert.equal(status.version, require('../package.json').version);
     assert.equal(status.models.length, 1);
     assert.match(status.models[0].id, /gemini/);
 

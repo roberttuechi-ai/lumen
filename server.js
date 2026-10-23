@@ -320,7 +320,7 @@ function takeNonce(n) {
   return true;
 }
 function usageKey(sess) { return sess.kind === 'account' ? ('m:' + hash(sess.email)) : sess.c; }
-function freeModel() { return MODELS.find(m => m.label === 'Gemini') || { label: 'Gemini', id: 'google/gemini-3.8-flash' }; }
+function freeModel() { return { label: 'Gemma (gratis)', id: env('MODEL_FREE', 'google/gemma-4-26b-a4b-it:free') }; }
 function activeModels(sess) { return (sess.kind === 'account' && sess.tier === 'free') ? [freeModel()] : MODELS; }
 function planOf(sess) {
   if (!sess) return null;
@@ -840,5 +840,5 @@ module.exports = {
   FREE_WEEKLY, PRO_DAILY, FREE_LESSONS,
   pickLang: i18n.pickLang, t: i18n.t, mailCopy: i18n.mailCopy, course: i18n.course,
   dictionaryKeys: i18n.dictionaryKeys, LANGS: i18n.LANGS, analysePrompt, textPrompt, goalKey,
-  grantsLumenPro, handleStripeEvent, lookupPro, LUMEN_PRICE_IDS,
+  grantsLumenPro, handleStripeEvent, lookupPro, LUMEN_PRICE_IDS, freeModel, activeModels,
 };

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const path = require('path');
 
 process.env.SESSION_SECRET = 'unit-test-secret';
+process.env.MODEL_FREE = 'google/gemma-4-26b-a4b-it:free';
 process.env.ACCESS_CODES = 'UNIT-CODE';
 process.env.STRIPE_PRICE_MONTHLY = 'price_lumen_month';
 process.env.STRIPE_PRICE_YEARLY = 'price_lumen_year';
@@ -20,6 +21,15 @@ function limits(over) {
     ipLimit: 30, codeLimit: 20, proDaily: 15, freeWeekly: 3, textFactor: 2, budgetSpent: 0, budgetMax: 1,
   }, over);
 }
+
+test('Gratis-Tarif nutzt ein kostenloses bildfähiges Modell; Pro behält drei Modelle', () => {
+  const free = app.freeModel();
+  assert.equal(free.id, 'google/gemma-4-26b-a4b-it:free');
+  assert.equal(app.activeModels({ kind: 'account', tier: 'free' }).length, 1);
+  assert.equal(app.activeModels({ kind: 'account', tier: 'free' })[0].id, free.id);
+  assert.equal(app.activeModels({ kind: 'account', tier: 'pro' }).length, 3);
+  assert.equal(app.activeModels({ kind: 'code', tier: 'tester' }).length, 3);
+});
 
 test('Signatur, Magic-Link und Einladungscode', () => {
   const email = app.normEmail('  Ada@Example.com ');
@@ -282,13 +292,13 @@ test('Magic-Link, Gratis-Limit, Checkout-Zustimmung und Webhook', async () => {
     assert.equal(me.features.captions, false);
     const status = await fetch(base + '/api/status', { headers: { cookie } }).then((r) => r.json());
     assert.equal(status.models.length, 1);
-    assert.match(status.models[0].id, /gemini/);
+    assert.equal(status.models[0].id, 'google/gemma-4-26b-a4b-it:free');
 
     const analyse = await fetch(base + '/api/analyse', { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify({ image: TINY, goal: 'Lernen' }) });
     const analysed = await analyse.json();
     assert.equal(analyse.status, 200);
     assert.equal(analysed.results.length, 1);
-    assert.equal(analysed.results[0].label, 'Gemini');
+    assert.equal(analysed.results[0].label, 'Gemma (gratis)');
     const texts = await fetch(base + '/api/texte', { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify({ image: TINY, goal: 'Instagram' }) });
     const textJson = await texts.json();
     assert.equal(texts.status, 403);

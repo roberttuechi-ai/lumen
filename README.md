@@ -4,7 +4,7 @@ Web-App (`public/`) mit einem kleinen Node-Server (`server.js`, keine npm-Pakete
 
 ## Voraussetzungen
 - Node.js 18 oder neuer (keine weiteren Pakete nötig)
-- Ein OpenRouter-API-Schlüssel (https://openrouter.ai/keys) mit etwas Guthaben
+- Ein OpenRouter-API-Schlüssel (https://openrouter.ai/keys). Für das Gratis-Bildmodell ist kein Guthaben für Modellaufrufe nötig; OpenRouter begrenzt kostenlose API-Nutzung.
 
 ## Starten (eigener Rechner)
 Der Schlüssel wird **nur als Umgebungsvariable** an den Server übergeben. Er steht nie in der HTML-Datei und wird nie an den Browser geschickt.
@@ -27,7 +27,7 @@ Am Handy im selben WLAN: `http://<IP-des-Rechners>:8787`.
 
 ## Was passiert
 - Das Foto wird **im Browser auf max. 1024 px verkleinert** (JPEG) und an `POST /api/analyse` geschickt.
-- Der Server fragt **parallel** drei Modelle an (Standard):
+- Der Server fragt im Pro-/Einladungscode-Tarif **parallel** drei Modelle an (Standard):
   - GPT: `openai/gpt-6-luna`
   - Gemini: `google/gemini-3.8-flash`
   - Claude: `anthropic/claude-haiku-5.5`
@@ -137,7 +137,7 @@ Neben den Einladungscodes gibt es ein Konto per E-Mail (kein Passwort).
 
 | Tarif | Analysen | Modelle | Texte | Fotokurs |
 |---|---|---|---|---|
-| Gratis | 3 pro rollierende Woche | nur Gemini (`google/gemini-3.8-flash`) | nein | die ersten zwei Lektionen, der Rest mit Pro-Hinweis |
+| Gratis | 3 pro rollierende Woche | 1 kostenloses Bildmodell: Gemma 4 26B (`google/gemma-4-26b-a4b-it:free`) | nein | die ersten zwei Lektionen, der Rest mit Pro-Hinweis |
 | Pro | 15 pro Tag | GPT, Gemini, Claude | ja | alle sechs |
 | Einladungscode | wie bisher 20/Code und 30/IP pro Tag | alle drei | ja | alle sechs |
 

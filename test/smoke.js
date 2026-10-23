@@ -12,6 +12,15 @@ process.env.STRIPE_LUMEN_EXTRA_PRICE_IDS = 'price_extra, price_spaced';
 const app = require('../server.js');
 
 const root = path.join(__dirname, '..');
+
+test('Node.js-Anforderung in Paket, README und CI ist konsistent', () => {
+  const pkg = require('../package.json');
+  const readme = require('../README.md');
+  const workflow = require('fs').readFileSync(path.join(root, '.github', 'workflows', 'lumen-checks.yml'), 'utf8');
+  assert.equal(pkg.engines.node, '>=20');
+  assert.match(readme, /Node\.js 20 oder neuer/);
+  assert.match(workflow, /node-version:\s*20/);
+});
 const TINY = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 function limits(over) {

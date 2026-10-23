@@ -15,7 +15,7 @@ const root = path.join(__dirname, '..');
 
 test('Node.js-Anforderung in Paket, README und CI ist konsistent', () => {
   const pkg = require('../package.json');
-  const readme = require('../README.md');
+  const readme = require('fs').readFileSync(path.join(root, 'README.md'), 'utf8');
   const workflow = require('fs').readFileSync(path.join(root, '.github', 'workflows', 'lumen-checks.yml'), 'utf8');
   assert.equal(pkg.engines.node, '>=20');
   assert.match(readme, /Node\.js 20 oder neuer/);

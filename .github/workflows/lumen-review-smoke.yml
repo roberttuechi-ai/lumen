@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - "review/**"
+  pull_request:
+    branches:
+      - "feat/free-vision-model-cost-control"
 
 permissions:
   contents: read
